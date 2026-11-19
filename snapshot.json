@@ -1,0 +1,6525 @@
+{
+ "meta": {
+  "generatedAt": "2026-11-19T22:58:11Z",
+  "repos": {
+   "financial_data_warehouse": {
+    "commit": "4614c5f",
+    "dirty": false
+   },
+   "g1-support-lab": {
+    "commit": "dbc757d",
+    "dirty": false
+   },
+   "notify-hub": {
+    "commit": "9684614",
+    "dirty": false
+   }
+  },
+  "liveTasks": true,
+  "counts": {
+   "nodes": 37,
+   "edges": 52,
+   "tables": 30,
+   "lineage": 40,
+   "dqChecks": 16,
+   "alerts": 11,
+   "emitters": 18,
+   "scenarios": 5
+  },
+  "warnings": []
+ },
+ "canvas": {
+  "w": 1920,
+  "h": 1080
+ },
+ "facts": {
+  "bars": "2.67M equity bars",
+  "files": "~257 files ingested",
+  "options": "1,620 option quotes",
+  "tests": "88 warehouse tests · 47 permission tests"
+ },
+ "zones": [
+  {
+   "id": "z-sources",
+   "label": "Data sources",
+   "story": "Where market data comes from",
+   "x": 20,
+   "y": 40,
+   "w": 186,
+   "h": 330
+  },
+  {
+   "id": "z-jobs",
+   "label": "Warehouse jobs",
+   "story": "Nightly pull and load",
+   "x": 216,
+   "y": 40,
+   "w": 350,
+   "h": 330
+  },
+  {
+   "id": "z-platform",
+   "label": "Trading platform · FIX 4.4",
+   "story": "A tiny exchange and order router",
+   "x": 20,
+   "y": 390,
+   "w": 546,
+   "h": 170
+  },
+  {
+   "id": "z-monitor",
+   "label": "Monitoring",
+   "story": "Watching everything, every 5–15 s",
+   "x": 20,
+   "y": 580,
+   "w": 546,
+   "h": 220
+  },
+  {
+   "id": "z-mkt",
+   "label": "Market-data replay",
+   "story": "Replays a day of quotes over multicast",
+   "x": 20,
+   "y": 820,
+   "w": 546,
+   "h": 240
+  },
+  {
+   "id": "z-postgres",
+   "label": "PostgreSQL 16 · database findw",
+   "story": "One database, layered like a refinery",
+   "x": 586,
+   "y": 40,
+   "w": 546,
+   "h": 470
+  },
+  {
+   "id": "z-agents",
+   "label": "Agents · least-privilege roles",
+   "story": "Small programs that watch, triage and write up",
+   "x": 586,
+   "y": 530,
+   "w": 546,
+   "h": 250
+  },
+  {
+   "id": "z-serve",
+   "label": "Serving the warehouse",
+   "story": "How other tools read the data",
+   "x": 1152,
+   "y": 40,
+   "w": 366,
+   "h": 200
+  },
+  {
+   "id": "z-derived",
+   "label": "Derived stores",
+   "story": "Copies shaped for other engines",
+   "x": 1538,
+   "y": 40,
+   "w": 366,
+   "h": 200
+  },
+  {
+   "id": "z-console",
+   "label": "Operator console",
+   "story": "Where a person approves changes",
+   "x": 1152,
+   "y": 330,
+   "w": 366,
+   "h": 180
+  },
+  {
+   "id": "z-remote",
+   "label": "On the tailnet",
+   "story": "Private network to the laptop and phone",
+   "x": 1538,
+   "y": 260,
+   "w": 366,
+   "h": 250
+  },
+  {
+   "id": "z-notify",
+   "label": "Notifications",
+   "story": "Push alerts to the phone",
+   "x": 1152,
+   "y": 530,
+   "w": 366,
+   "h": 180
+  }
+ ],
+ "nodes": [
+  {
+   "id": "schema:core",
+   "kind": "schema",
+   "label": "core",
+   "sub": "modeled",
+   "story": "The clean model: one row per security, per bar, per split or dividend.",
+   "tech": "Dimensions + facts. fact_equity_bar is keyed by source; fact_option_quote is range-partitioned by month.",
+   "zone": "z-postgres",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/004_core.sql",
+    "financial_data_warehouse/sql/migrations/006_options.sql",
+    "financial_data_warehouse/sql/migrations/008_sources.sql"
+   ],
+   "detail": {
+    "tables": [
+     "dim_security",
+     "security_ticker_history",
+     "dim_trading_day",
+     "fact_equity_bar",
+     "adjustment_factor",
+     "corporate_action",
+     "fact_option_quote"
+    ],
+    "owner": "financial_data_warehouse"
+   },
+   "schedule": [],
+   "plain": "Clean model",
+   "x": 784,
+   "y": 210,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "schema:ctx",
+   "kind": "schema",
+   "label": "ctx",
+   "sub": "agent memory · pgvector",
+   "story": "The agents' memory: docs and past tickets, searchable by meaning.",
+   "tech": "documents + chunks(vector(768), HNSW cosine) + agent_memory. Owned by g1-support-lab migrations.",
+   "zone": "z-postgres",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/db/postgres/migrations/002_ctx.sql",
+    "g1-support-lab/db/postgres/migrations/004_agent_roles.sql"
+   ],
+   "detail": {
+    "tables": [
+     "documents",
+     "chunks",
+     "agent_memory"
+    ],
+    "owner": "g1-support-lab"
+   },
+   "schedule": [],
+   "plain": "Agents' memory",
+   "x": 604,
+   "y": 410,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "schema:dq",
+   "kind": "schema",
+   "label": "dq",
+   "sub": "check results",
+   "story": "Every quality check's result, every night. Errors stop the pipeline.",
+   "tech": "dq.results(run_id, check_name, object, failed_rows, warned_rows, passed). Known gaps are downgraded by dq_exceptions.yaml.",
+   "zone": "z-postgres",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/005_dq.sql"
+   ],
+   "detail": {
+    "tables": [
+     "results"
+    ],
+    "owner": "financial_data_warehouse"
+   },
+   "schedule": [],
+   "plain": "Quality results",
+   "x": 964,
+   "y": 100,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "schema:mart",
+   "kind": "schema",
+   "label": "mart",
+   "sub": "views for use",
+   "story": "Ready-to-use views: adjusted prices, best source per bar, the replay feed.",
+   "tech": "Views only, rebuilt by transforms 090/095. v_equity_bar_best picks the lowest priority number per bar.",
+   "zone": "z-postgres",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql",
+    "financial_data_warehouse/sql/transforms/095_mart_option_views.sql"
+   ],
+   "detail": {
+    "tables": [
+     "v_equity_bar_adjusted (view)",
+     "v_equity_bar_by_source (view)",
+     "v_equity_bar_best (view)",
+     "v_equity_bar_source_diff (view)",
+     "v_option_chain_eod (view)",
+     "v_feed_replay (view)"
+    ],
+    "owner": "financial_data_warehouse"
+   },
+   "schedule": [],
+   "plain": "Ready-made views",
+   "x": 964,
+   "y": 210,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "schema:meta",
+   "kind": "schema",
+   "label": "meta",
+   "sub": "bookkeeping",
+   "story": "Bookkeeping: what was loaded, from where, and which source wins.",
+   "tech": "ingest_log (sha256 per file path), source (priority), pull_state, schema_migrations.",
+   "zone": "z-postgres",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/002_meta.sql",
+    "financial_data_warehouse/sql/migrations/003_stg.sql",
+    "financial_data_warehouse/sql/migrations/008_sources.sql"
+   ],
+   "detail": {
+    "tables": [
+     "ingest_log",
+     "source",
+     "pull_state"
+    ],
+    "owner": "financial_data_warehouse"
+   },
+   "schedule": [],
+   "plain": "Bookkeeping",
+   "x": 604,
+   "y": 100,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "schema:ops",
+   "kind": "schema",
+   "label": "ops",
+   "sub": "tickets · runs",
+   "story": "Tickets and an append-only history of every change, by people and agents.",
+   "tech": "tickets (keys INC-/PRB-/CHG- from triggers), ticket_events (append-only), agent_runs, maintenance_windows. Row-level security per agent role.",
+   "zone": "z-postgres",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/db/postgres/migrations/001_ops.sql",
+    "g1-support-lab/db/postgres/migrations/003_grants.sql",
+    "g1-support-lab/db/postgres/migrations/004_agent_roles.sql"
+   ],
+   "detail": {
+    "tables": [
+     "tickets",
+     "ticket_events",
+     "agent_runs",
+     "maintenance_windows"
+    ],
+    "owner": "g1-support-lab"
+   },
+   "schedule": [],
+   "plain": "Tickets and history",
+   "x": 964,
+   "y": 410,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "schema:stg",
+   "kind": "schema",
+   "label": "stg",
+   "sub": "raw, as parsed",
+   "story": "Staging: the files, loaded as-is, one table per file format.",
+   "tech": "No keys; every row carries source_file so a changed file's rows can be replaced.",
+   "zone": "z-postgres",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/003_stg.sql",
+    "financial_data_warehouse/sql/migrations/006_options.sql",
+    "financial_data_warehouse/sql/migrations/008_sources.sql"
+   ],
+   "detail": {
+    "tables": [
+     "equity_bar_daily",
+     "equity_bar_minute",
+     "map_file",
+     "factor_file",
+     "option_quote_minute",
+     "alpaca_bar"
+    ],
+    "owner": "financial_data_warehouse"
+   },
+   "schedule": [],
+   "plain": "Raw tables",
+   "x": 604,
+   "y": 210,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "task:findw-nightly",
+   "kind": "job",
+   "label": "Nightly load",
+   "sub": "",
+   "story": "Loads new files, reshapes them into clean tables, then runs quality checks. Unchanged files are skipped.",
+   "tech": "nightly.ps1 → ingest (sha256 skip, COPY into stg) → transform (sql/transforms in one transaction) → dq (16 SQL checks + LEAN reconcile; any error exits 1).",
+   "zone": "z-jobs",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "financial_data_warehouse/src/findw/ingest.py",
+    "financial_data_warehouse/scheduling/register_tasks.ps1"
+   ],
+   "detail": {
+    "file types": [
+     "equity_daily → stg.equity_bar_daily",
+     "equity_minute_trade → stg.equity_bar_minute",
+     "map_file → stg.map_file",
+     "factor_file → stg.factor_file",
+     "option_quote_minute → stg.option_quote_minute",
+     "alpaca_bar → stg.alpaca_bar"
+    ],
+    "dq checks": [
+     "ohlc_daily on stg.equity_bar_daily",
+     "ohlc_minute on stg.equity_bar_minute",
+     "duplicate_keys_daily on stg.equity_bar_daily",
+     "duplicate_keys_minute on stg.equity_bar_minute",
+     "duplicate_keys_map on stg.map_file",
+     "duplicate_keys_factor on stg.factor_file",
+     "unmapped_bars on stg.equity_bar_*",
+     "missing_daily_bars on core.fact_equity_bar",
+     "minute_bars_per_day on core.fact_equity_bar",
+     "option_bid_le_ask on core.fact_option_quote",
+     "option_no_negative_values on core.fact_option_quote",
+     "option_expiry_not_before_quote on stg.option_quote_minute",
+     "duplicate_keys_option on stg.option_quote_minute",
+     "ohlc_alpaca on stg.alpaca_bar",
+     "duplicate_keys_alpaca on stg.alpaca_bar",
+     "cross_source_close on mart.v_equity_bar_source_diff",
+     "reconcile vs LEAN backtest"
+    ],
+    "runs": "nightly.ps1"
+   },
+   "schedule": [
+    {
+     "kind": "daily",
+     "at": "01:30",
+     "scriptAt": "02:30",
+     "live": true,
+     "task": "findw-nightly"
+    }
+   ],
+   "plain": "Loads and checks",
+   "x": 324,
+   "y": 250,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "task:findw-mcp",
+   "kind": "service",
+   "label": "MCP server",
+   "sub": "",
+   "story": "Lets an AI assistant on the laptop ask the warehouse questions, read-only.",
+   "tech": "Streamable HTTP on :8765/mcp, bearer token, host allow-list. Tools run as findw_reader; run_pipeline is the only write and takes the pipeline lock.",
+   "zone": "z-serve",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "financial_data_warehouse/src/findw/mcp_server.py",
+    "financial_data_warehouse/scheduling/register_mcp_task.ps1"
+   ],
+   "detail": {
+    "tools": [
+     "list_tables()",
+     "describe_table(name)",
+     "query(sql, max_rows) — One read-only statement as findw_reader. Prepared, so Postgres rejects a second statement.",
+     "dq_latest()",
+     "get_feed(date, max_rows) — One trade date of mart.v_feed_replay in FEED_CONTRACT order, same rows as `export --target feed`.",
+     "run_pipeline() — ingest, transform, dq under the pipeline lock. Returns at once with status busy if the lock is held."
+    ],
+    "runs": "-m findw mcp-serve"
+   },
+   "schedule": [
+    {
+     "kind": "logon",
+     "task": "findw-mcp"
+    }
+   ],
+   "plain": "AI query door",
+   "x": 1170,
+   "y": 110,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "task:findw-pull-alpaca",
+   "kind": "job",
+   "label": "Nightly pull",
+   "sub": "",
+   "story": "Fetches only what's new from Alpaca and saves it as files first, so nothing is lost if the load fails.",
+   "tech": "findw pull --source alpaca. One file per year (daily) or month (minute); finished periods are never pulled again. Per-source advisory lock.",
+   "zone": "z-jobs",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "financial_data_warehouse/sources.yaml",
+    "financial_data_warehouse/scheduling/register_pull_tasks.ps1"
+   ],
+   "detail": {
+    "tickers": [
+     "SPY",
+     "QQQ",
+     "IWM",
+     "AAPL",
+     "IBM"
+    ],
+    "datasets": [
+     "daily from 2016-01-01",
+     "minute from 2024-01-01"
+    ],
+    "runs": "tasks.ps1 pull --source alpaca"
+   },
+   "schedule": [
+    {
+     "kind": "daily",
+     "at": "01:00",
+     "scriptAt": "02:00",
+     "live": true,
+     "task": "findw-pull-alpaca"
+    }
+   ],
+   "plain": "Downloads new prices",
+   "x": 234,
+   "y": 110,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "ctr:g1-prometheus",
+   "kind": "container",
+   "label": "Prometheus",
+   "sub": "prom/prometheus:v3.16.0",
+   "story": "Collects numbers from every service on a timer and raises alerts when rules break.",
+   "tech": "Scrapes every 15 s (FixGateway every 5 s). Alert rules in monitoring/alert.rules.yml.",
+   "zone": "z-monitor",
+   "ports": [
+    9090
+   ],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/monitoring/docker-compose.yml"
+   ],
+   "detail": {
+    "image": "prom/prometheus:v3.16.0",
+    "compose project": "g1-monitoring",
+    "scrape jobs": [
+     "windows every 15 s",
+     "mockexchange every 15 s",
+     "fixgateway every 5 s",
+     "quoteengine every 15 s",
+     "feed_handler every 15 s",
+     "gap_request_proxy every 15 s",
+     "prometheus every 15 s"
+    ],
+    "alert rules": [
+     "FixSessionDown (critical, for 15s)",
+     "ClientFixSessionDown (warning, for 30s)",
+     "LabServiceDown (critical, for 30s)",
+     "ReadinessFailed (warning, for 30s)",
+     "ReadinessStale (warning, for 1m)",
+     "DiskLow (warning, for 5m)",
+     "FeedHandlerDown (warning, for 2m)",
+     "FeedGapUnrecovered (warning, for 30s)",
+     "FeedGapProxyMisses (warning, for 0s)",
+     "DerivedLoadFailed (warning, for 0s)",
+     "DerivedStoresStale (warning, for 5m)"
+    ]
+   },
+   "schedule": [],
+   "plain": "Metrics collector",
+   "x": 216,
+   "y": 678,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "ctr:g1-grafana",
+   "kind": "container",
+   "label": "Grafana",
+   "sub": "grafana/grafana-oss:12.4.3",
+   "story": "Dashboards for those numbers.",
+   "tech": "Provisioned dashboards 'Lab health' and 'Market data feed'; datasource is Prometheus. The Mac opens it on :3100 through Tailscale Serve.",
+   "zone": "z-monitor",
+   "ports": [
+    3100
+   ],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/monitoring/docker-compose.yml"
+   ],
+   "detail": {
+    "image": "grafana/grafana-oss:12.4.3",
+    "compose project": "g1-monitoring"
+   },
+   "schedule": [],
+   "plain": "Dashboards",
+   "x": 38,
+   "y": 678,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "ctr:notify-ntfy",
+   "kind": "container",
+   "label": "ntfy",
+   "sub": "binwiederhier/ntfy:v2.11.0",
+   "story": "A self-hosted push-notification server. Any app on the tower can post to it.",
+   "tech": "Deny-all auth; publisher (write-only on apps*, claude*) and reader users. Topics apps-<name>, claude-<machine>.",
+   "zone": "z-notify",
+   "ports": [
+    8090
+   ],
+   "metrics": [],
+   "src": [
+    "notify-hub/docker-compose.yml"
+   ],
+   "detail": {
+    "image": "binwiederhier/ntfy:v2.11.0",
+    "compose project": "notify-hub"
+   },
+   "schedule": [],
+   "plain": "Push server",
+   "x": 1170,
+   "y": 590,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "svc:mockexchange",
+   "kind": "service",
+   "label": "MockExchange",
+   "sub": ".NET 8 · :9201",
+   "story": "A one-symbol stock exchange: it matches buyers and sellers.",
+   "tech": "SPY limit order book, price-time priority; market orders are IOC. GET /book shows the book.",
+   "zone": "z-platform",
+   "ports": [
+    9201,
+    9880
+   ],
+   "metrics": [
+    "mockex_orders_total",
+    "mockex_fills_total",
+    "mockex_filled_quantity_total",
+    "mockex_cancels_total",
+    "mockex_live_orders",
+    "fix_session_up",
+    "fix_app_messages_total",
+    "fix_logons_total",
+    "fix_logouts_total"
+   ],
+   "src": [
+    "g1-support-lab/ops/Start-Platform.ps1"
+   ],
+   "detail": {
+    "start order": 1,
+    "entry": "mock-platform\\MockExchange\\bin\\Release\\net8.0\\MockExchange.dll",
+    "probe": "/metrics",
+    "FIX sessions": [
+     "acceptor MOCKEX ↔ G1GW on :9880"
+    ]
+   },
+   "schedule": [],
+   "plain": "Stock exchange",
+   "x": 396,
+   "y": 450,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "svc:fixgateway",
+   "kind": "service",
+   "label": "FixGateway",
+   "sub": ".NET 8 · :9202",
+   "story": "The order router. Clients connect here; it forwards orders to the exchange and routes the replies back.",
+   "tech": "Acceptor for QUOTEENG/DESK, initiator to MOCKEX. Prefixes ClOrdID with the client CompID. Rejects with 'exchange session down' while held. Admin: POST /admin/exchange-session/hold|restore.",
+   "zone": "z-platform",
+   "ports": [
+    9202,
+    9876,
+    9880
+   ],
+   "metrics": [
+    "gw_orders_routed_total",
+    "gw_orders_rejected_total",
+    "gw_reports_routed_total",
+    "gw_exchange_session_hold",
+    "fix_session_up",
+    "fix_app_messages_total",
+    "fix_logons_total",
+    "fix_logouts_total"
+   ],
+   "src": [
+    "g1-support-lab/ops/Start-Platform.ps1"
+   ],
+   "detail": {
+    "start order": 2,
+    "entry": "mock-platform\\FixGateway\\bin\\Release\\net8.0\\FixGateway.dll",
+    "probe": "/metrics",
+    "FIX sessions": [
+     "acceptor G1GW ↔ QUOTEENG, DESK on :9876",
+     "initiator G1GW ↔ MOCKEX on :9880"
+    ]
+   },
+   "schedule": [],
+   "plain": "Order router",
+   "x": 216,
+   "y": 450,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "svc:quoteengine",
+   "kind": "service",
+   "label": "QuoteEngine",
+   "sub": ".NET 8 · :9203",
+   "story": "A robot trader. Every second it replaces its buy and sell quotes; every five it sends a small market order.",
+   "tech": "QuickFIX/n initiator, CompID QUOTEENG. 100×100 at ±$0.05 around a drifting reference price; 10-share IOC every 5 s.",
+   "zone": "z-platform",
+   "ports": [
+    9203,
+    9876
+   ],
+   "metrics": [
+    "quoteengine_orders_sent_total",
+    "quoteengine_exec_reports_total",
+    "quoteengine_cancel_rejects_total",
+    "quoteengine_reference_price",
+    "fix_session_up",
+    "fix_app_messages_total",
+    "fix_logons_total",
+    "fix_logouts_total"
+   ],
+   "src": [
+    "g1-support-lab/ops/Start-Platform.ps1"
+   ],
+   "detail": {
+    "start order": 3,
+    "entry": "mock-platform\\QuoteEngine\\bin\\Release\\net8.0\\QuoteEngine.dll",
+    "probe": "/metrics",
+    "FIX sessions": [
+     "initiator QUOTEENG ↔ G1GW on :9876"
+    ]
+   },
+   "schedule": [],
+   "plain": "Trading robot",
+   "x": 38,
+   "y": 450,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "svc:dashboard",
+   "kind": "service",
+   "label": "Dashboard",
+   "sub": ".NET 8 · :8100",
+   "story": "The control room. Only a person, here, can turn an agent's draft into a real ticket or accept its writing.",
+   "tech": "Blazor Server .NET 8. Writes ops.tickets/ticket_events as dashboard_app; reads Prometheus, ctx (search), Oracle; accepts docs drafts into git.",
+   "zone": "z-console",
+   "ports": [
+    8100
+   ],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/ops/Start-Platform.ps1"
+   ],
+   "detail": {
+    "start order": 4,
+    "entry": "dashboard\\Dashboard\\bin\\Release\\net8.0\\Dashboard.dll",
+    "probe": "/healthz"
+   },
+   "schedule": [],
+   "plain": "Control room",
+   "x": 1170,
+   "y": 400,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "svc:gap_proxy",
+   "kind": "service",
+   "label": "gap_request_proxy",
+   "sub": "Python · :9302",
+   "story": "Keeps the last 10,000 messages so a listener that missed some can ask again.",
+   "tech": "TCP 30002: role P (publisher stream in), role R (retransmit requests).",
+   "zone": "z-mkt",
+   "ports": [
+    9302
+   ],
+   "metrics": [
+    "gap_proxy_requests",
+    "gap_proxy_misses",
+    "gap_proxy_messages_served",
+    "gap_proxy_window_messages"
+   ],
+   "src": [
+    "g1-support-lab/ops/Start-Platform.ps1"
+   ],
+   "detail": {
+    "start order": 5,
+    "entry": "marketdata.gap_request_proxy",
+    "probe": ""
+   },
+   "schedule": [],
+   "plain": "Recovery service",
+   "x": 216,
+   "y": 985,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "svc:feed_handler",
+   "kind": "service",
+   "label": "feed_handler",
+   "sub": "Python · :9301",
+   "story": "Listens to the feed and notices missing or late messages.",
+   "tech": "Joins 239.192.0.1:30001; detects gaps, duplicates, stale symbols, latency; requests retransmits.",
+   "zone": "z-mkt",
+   "ports": [
+    9301
+   ],
+   "metrics": [
+    "feed_handler_messages",
+    "feed_handler_gaps",
+    "feed_handler_gap_messages",
+    "feed_handler_duplicates",
+    "feed_handler_retransmits",
+    "feed_handler_unrecovered_messages",
+    "feed_handler_stale_symbols",
+    "feed_handler_last_sequence",
+    "feed_handler_session_id",
+    "feed_handler_latency_seconds",
+    "feed_handler_negative_latency"
+   ],
+   "src": [
+    "g1-support-lab/ops/Start-Platform.ps1"
+   ],
+   "detail": {
+    "start order": 6,
+    "entry": "marketdata.feed_handler",
+    "probe": ""
+   },
+   "schedule": [],
+   "plain": "Feed listener",
+   "x": 396,
+   "y": 890,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "task:g1-agent-indexer",
+   "kind": "agent",
+   "label": "Indexer agent",
+   "sub": "",
+   "story": "Reads the docs and closed tickets and files them away by meaning, so other agents can find similar past problems.",
+   "tech": "Splits markdown by heading (≤1,500 chars), embeds with nomic-embed-text ('search_document: '), replaces rows in ctx.documents/chunks.",
+   "zone": "z-agents",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/ops/Register-AgentTasks.ps1"
+   ],
+   "detail": {
+    "runs": "Invoke-Indexer.ps1"
+   },
+   "schedule": [
+    {
+     "kind": "interval",
+     "everySec": 300,
+     "task": "g1-agent-indexer"
+    }
+   ],
+   "plain": "Librarian",
+   "x": 604,
+   "y": 590,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "task:g1-agent-maintenance",
+   "kind": "agent",
+   "label": "Maintenance agent",
+   "sub": "",
+   "story": "Checks alerts and health every minute. When something breaks it drafts an incident and, if it's serious, buzzes the phone.",
+   "tech": "Rule-based, no model. Reads Prometheus alerts, readiness, Postgres health, dq.results. One draft INC per episode; P1s pushed to ntfy. Quiet during maintenance windows.",
+   "zone": "z-agents",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/ops/Register-AgentTasks.ps1"
+   ],
+   "detail": {
+    "runs": "Invoke-Maintenance.ps1"
+   },
+   "schedule": [
+    {
+     "kind": "interval",
+     "everySec": 60,
+     "task": "g1-agent-maintenance"
+    },
+    {
+     "kind": "weekly",
+     "at": "08:00",
+     "days": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri"
+     ],
+     "task": "g1-agent-maintenance-preopen"
+    }
+   ],
+   "plain": "Watchdog",
+   "x": 964,
+   "y": 590,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "task:g1-agent-tickets",
+   "kind": "agent",
+   "label": "Triage agent",
+   "sub": "",
+   "story": "Reads new draft tickets, looks up similar past ones and suggests a priority and next steps.",
+   "tech": "ctx similarity search → Ollama /api/chat (qwen2.5:14b, JSON schema) → validated UPDATE. Priority can only go up. Defers when GPU memory is short.",
+   "zone": "z-agents",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/ops/Register-AgentTasks.ps1"
+   ],
+   "detail": {
+    "runs": "Invoke-Tickets.ps1"
+   },
+   "schedule": [
+    {
+     "kind": "interval",
+     "everySec": 60,
+     "task": "g1-agent-tickets"
+    }
+   ],
+   "plain": "Triage assistant",
+   "x": 784,
+   "y": 590,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "task:g1-agent-docs",
+   "kind": "agent",
+   "label": "Docs agent",
+   "sub": "",
+   "story": "After a serious incident is resolved, writes the first draft of the postmortem for a person to accept.",
+   "tech": "Per resolved P1/P2: reads ticket, events, runbook, ctx → drafts postmortem + runbook note on agent/docs/<key>; comments on the ticket.",
+   "zone": "z-agents",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/ops/Register-AgentTasks.ps1"
+   ],
+   "detail": {
+    "runs": "Invoke-Docs.ps1"
+   },
+   "schedule": [
+    {
+     "kind": "interval",
+     "everySec": 120,
+     "task": "g1-agent-docs"
+    }
+   ],
+   "plain": "Write-up assistant",
+   "x": 964,
+   "y": 700,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "task:g1-derived-load",
+   "kind": "job",
+   "label": "Derived load",
+   "sub": "",
+   "story": "Each night copies the warehouse into two other database engines used in finance.",
+   "tech": "ops/Invoke-DerivedLoad.ps1: Postgres → KDB-X → Oracle FINPDB → FPAPDB; emits g1_derived_load_* metrics.",
+   "zone": "z-serve",
+   "ports": [],
+   "metrics": [
+    "g1_derived_load_success",
+    "g1_derived_load_last_success_timestamp_seconds",
+    "g1_derived_load_last_run_timestamp_seconds",
+    "g1_derived_load_duration_seconds"
+   ],
+   "src": [
+    "g1-support-lab/ops/Register-DerivedLoadTask.ps1"
+   ],
+   "detail": {
+    "runs": "Invoke-DerivedLoad.ps1"
+   },
+   "schedule": [
+    {
+     "kind": "daily",
+     "at": "02:00",
+     "task": "g1-derived-load"
+    }
+   ],
+   "plain": "Nightly copy",
+   "x": 1350,
+   "y": 110,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "ext:alpaca",
+   "kind": "external",
+   "label": "Alpaca API",
+   "sub": "Market Data v2 · feed=sip",
+   "story": "A broker's market-data service. Every night it supplies fresh daily and minute price bars.",
+   "tech": "HTTP client with paging, 200 requests/min rate limit and retries (src/findw/sources/alpaca.py). Free plan, consolidated tape.",
+   "zone": "z-sources",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "financial_data_warehouse/sources.yaml",
+    "financial_data_warehouse/src/findw/sources/alpaca.py"
+   ],
+   "detail": {},
+   "schedule": [],
+   "declared": true,
+   "plain": "Price data provider",
+   "x": 38,
+   "y": 110,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "store:lean-data",
+   "kind": "store",
+   "label": "LEAN sample data",
+   "sub": "data/ · zip + csv",
+   "story": "QuantConnect's free sample files: decades of daily prices, a week of minute bars, some options.",
+   "tech": "Parsed by src/findw/lean_format/{bars,map_files,factor_files,options}.py. Prices are integers ×10000.",
+   "zone": "z-sources",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "financial_data_warehouse/universe.yaml"
+   ],
+   "detail": {},
+   "schedule": [],
+   "declared": true,
+   "plain": "Free sample data",
+   "x": 38,
+   "y": 250,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "store:data-raw",
+   "kind": "store",
+   "label": "Landing folder",
+   "sub": "data_raw/ · .json.gz",
+   "story": "Raw downloads exactly as received: the audit trail.",
+   "tech": "data_raw/alpaca/bars/<daily|minute>/<ticker>/<period>.json.gz, written atomically, recorded in meta.pull_state.",
+   "zone": "z-jobs",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "financial_data_warehouse/src/findw/pull.py"
+   ],
+   "detail": {},
+   "schedule": [],
+   "declared": true,
+   "plain": "Raw downloads",
+   "x": 414,
+   "y": 110,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "svc:readiness",
+   "kind": "service",
+   "label": "Readiness watcher",
+   "sub": "10 checks / 15 s",
+   "story": "A checklist that runs every 15 seconds: is everything that should be up, up?",
+   "tech": "ops/Invoke-MorningReadiness.ps1 -Watch: HTTP and TCP probes, written as g1_readiness.prom for the textfile collector.",
+   "zone": "z-monitor",
+   "ports": [],
+   "metrics": [
+    "g1_readiness_check",
+    "g1_readiness_ok",
+    "g1_readiness_last_run_timestamp_seconds"
+   ],
+   "src": [
+    "g1-support-lab/ops/Invoke-MorningReadiness.ps1"
+   ],
+   "detail": {},
+   "schedule": [],
+   "declared": true,
+   "plain": "Health checklist",
+   "x": 396,
+   "y": 630,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "svc:windows-exporter",
+   "kind": "service",
+   "label": "windows_exporter",
+   "sub": "host metrics",
+   "story": "Reports the tower's own health: CPU, memory, disk.",
+   "tech": "Windows service with the textfile collector enabled, so readiness and derived-load results become metrics too.",
+   "zone": "z-monitor",
+   "ports": [
+    9182
+   ],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/monitoring/README.md"
+   ],
+   "detail": {},
+   "schedule": [],
+   "declared": true,
+   "plain": "Machine health",
+   "x": 396,
+   "y": 725,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "svc:feed-publisher",
+   "kind": "service",
+   "label": "feed_publisher",
+   "sub": "on demand",
+   "story": "Replays a trading day of option quotes onto the network, like an exchange data feed. It can drop packets on purpose.",
+   "tech": "marketdata/feed_publisher.py: Postgres/KDB-X/file sources, PITCH-style UDP packets with sequence numbers, fault injection (--drop).",
+   "zone": "z-mkt",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/marketdata/feed_publisher.py",
+    "g1-support-lab/ops/Invoke-FeedReplay.ps1"
+   ],
+   "detail": {},
+   "schedule": [],
+   "declared": true,
+   "plain": "Feed broadcaster",
+   "x": 38,
+   "y": 890,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "store:git",
+   "kind": "store",
+   "label": "Git repos",
+   "sub": "main · docs-drafts",
+   "story": "The lab's documentation and runbooks, plus a separate repo where agents propose drafts.",
+   "tech": "Indexer reads origin/main via git plumbing; docs agent commits to agent/docs/<key> in a bare draft repo.",
+   "zone": "z-agents",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "overlay"
+   ],
+   "detail": {},
+   "schedule": [],
+   "declared": true,
+   "plain": "Docs and runbooks",
+   "x": 604,
+   "y": 700,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "svc:ollama",
+   "kind": "service",
+   "label": "Ollama",
+   "sub": "local LLM · RTX 3080 Ti",
+   "story": "A language model running on the tower's own graphics card. Nothing leaves the machine.",
+   "tech": "qwen2.5:14b for chat, nomic-embed-text for 768-d embeddings. :11434 (missing from the port table, PRB-0002).",
+   "zone": "z-agents",
+   "ports": [
+    11434
+   ],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/agents/common/ollama.py"
+   ],
+   "detail": {},
+   "schedule": [],
+   "declared": true,
+   "plain": "Local AI model",
+   "x": 784,
+   "y": 700,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "store:kdbx",
+   "kind": "store",
+   "label": "KDB-X",
+   "sub": "q · date-partitioned",
+   "story": "A time-series database popular on trading desks.",
+   "tech": "q in WSL Ubuntu, :5001. Quotes, bars and a daily series loaded with PyKX (kdbx/load_warehouse.py).",
+   "zone": "z-derived",
+   "ports": [
+    5001
+   ],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/kdbx/schema.q"
+   ],
+   "detail": {},
+   "schedule": [],
+   "declared": true,
+   "plain": "Trading-desk database",
+   "x": 1646,
+   "y": 92,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "store:oracle",
+   "kind": "store",
+   "label": "Oracle 26ai",
+   "sub": "FINPDB · FPAPDB",
+   "story": "An enterprise database with finance and planning schemas.",
+   "tech": "Docker g1-oracle :1521. MKT_AV in FINPDB (SECURITY_DIM from core.dim_security), FPA_AV in FPAPDB.",
+   "zone": "z-derived",
+   "ports": [
+    1521
+   ],
+   "metrics": [],
+   "src": [
+    "g1-support-lab/db/oracle/create_pdbs.sql"
+   ],
+   "detail": {},
+   "schedule": [],
+   "declared": true,
+   "plain": "Enterprise database",
+   "x": 1646,
+   "y": 174,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "dev:mac",
+   "kind": "device",
+   "label": "MacBook",
+   "sub": "Claude Code · browser",
+   "story": "The laptop. It reaches the tower over a private network, from anywhere.",
+   "tech": "Tailscale Serve exposes 5433, 8765, 3100 (tcp) and 8100 (http, adds identity headers). Nothing is open to the LAN.",
+   "zone": "z-remote",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "overlay"
+   ],
+   "detail": {},
+   "schedule": [],
+   "declared": true,
+   "plain": "Laptop",
+   "x": 1556,
+   "y": 330,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "dev:phone",
+   "kind": "device",
+   "label": "Phone",
+   "sub": "ntfy app",
+   "story": "Gets a push when something serious breaks; one tap opens the ticket.",
+   "tech": "Subscribed as read-only user to apps-g1-alerts; instant delivery relayed via upstream ntfy.sh.",
+   "zone": "z-remote",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "overlay"
+   ],
+   "detail": {},
+   "schedule": [],
+   "declared": true,
+   "plain": "Phone",
+   "x": 1736,
+   "y": 330,
+   "w": 150,
+   "h": 50
+  },
+  {
+   "id": "ext:claude-code",
+   "kind": "external",
+   "label": "Claude Code",
+   "sub": "session hooks",
+   "story": "AI coding sessions also post here when they finish or need attention.",
+   "tech": "~/.claude/hooks/ntfy_notify.py on UserPromptSubmit, Notification and Stop → topic claude-tower.",
+   "zone": "z-notify",
+   "ports": [],
+   "metrics": [],
+   "src": [
+    "notify-hub/README.md"
+   ],
+   "detail": {},
+   "schedule": [],
+   "declared": true,
+   "plain": "AI coding sessions",
+   "x": 1350,
+   "y": 590,
+   "w": 150,
+   "h": 50
+  }
+ ],
+ "edges": [
+  {
+   "id": "schema:stg>schema:core",
+   "from": "schema:stg",
+   "to": "schema:core",
+   "proto": "sql",
+   "label": "transforms",
+   "src": [
+    "financial_data_warehouse/sql/transforms"
+   ],
+   "story": "",
+   "bend": 0,
+   "tableEdges": 12
+  },
+  {
+   "id": "schema:meta>schema:core",
+   "from": "schema:meta",
+   "to": "schema:core",
+   "proto": "sql",
+   "label": "transforms",
+   "src": [
+    "financial_data_warehouse/sql/transforms"
+   ],
+   "story": "",
+   "bend": 0,
+   "tableEdges": 1
+  },
+  {
+   "id": "schema:core>schema:mart",
+   "from": "schema:core",
+   "to": "schema:mart",
+   "proto": "sql",
+   "label": "views",
+   "src": [
+    "financial_data_warehouse/sql/transforms"
+   ],
+   "story": "",
+   "bend": 0,
+   "tableEdges": 14
+  },
+  {
+   "id": "schema:meta>schema:mart",
+   "from": "schema:meta",
+   "to": "schema:mart",
+   "proto": "sql",
+   "label": "views",
+   "src": [
+    "financial_data_warehouse/sql/transforms"
+   ],
+   "story": "",
+   "bend": 0,
+   "tableEdges": 5
+  },
+  {
+   "id": "task:findw-nightly>schema:stg",
+   "from": "task:findw-nightly",
+   "to": "schema:stg",
+   "proto": "file",
+   "label": "COPY · 6 file types",
+   "src": [
+    "financial_data_warehouse/src/findw/ingest.py"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "schema:stg>schema:dq",
+   "from": "schema:stg",
+   "to": "schema:dq",
+   "proto": "check",
+   "label": "11 checks",
+   "src": [
+    "financial_data_warehouse/src/findw/dq.py"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "schema:core>schema:dq",
+   "from": "schema:core",
+   "to": "schema:dq",
+   "proto": "check",
+   "label": "4 checks",
+   "src": [
+    "financial_data_warehouse/src/findw/dq.py"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "schema:mart>schema:dq",
+   "from": "schema:mart",
+   "to": "schema:dq",
+   "proto": "check",
+   "label": "1 check",
+   "src": [
+    "financial_data_warehouse/src/findw/dq.py"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "ctr:g1-prometheus>ctr:g1-grafana",
+   "from": "ctr:g1-prometheus",
+   "to": "ctr:g1-grafana",
+   "proto": "http",
+   "label": "queries",
+   "src": [
+    "g1-support-lab/monitoring/docker-compose.yml"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "svc:fixgateway>svc:mockexchange",
+   "from": "svc:fixgateway",
+   "to": "svc:mockexchange",
+   "proto": "fix",
+   "label": "G1GW→MOCKEX :9880",
+   "src": [
+    "g1-support-lab/mock-platform/*/Program.cs"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "svc:quoteengine>svc:fixgateway",
+   "from": "svc:quoteengine",
+   "to": "svc:fixgateway",
+   "proto": "fix",
+   "label": "QUOTEENG→G1GW :9876",
+   "src": [
+    "g1-support-lab/mock-platform/*/Program.cs"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "svc:windows-exporter>ctr:g1-prometheus",
+   "from": "svc:windows-exporter",
+   "to": "ctr:g1-prometheus",
+   "proto": "metrics",
+   "label": "every 15 s",
+   "src": [
+    "g1-support-lab/monitoring/prometheus.yml"
+   ],
+   "story": "",
+   "bend": 0,
+   "job": "windows"
+  },
+  {
+   "id": "svc:mockexchange>ctr:g1-prometheus",
+   "from": "svc:mockexchange",
+   "to": "ctr:g1-prometheus",
+   "proto": "metrics",
+   "label": "every 15 s",
+   "src": [
+    "g1-support-lab/monitoring/prometheus.yml"
+   ],
+   "story": "",
+   "bend": 0,
+   "job": "mockexchange"
+  },
+  {
+   "id": "svc:fixgateway>ctr:g1-prometheus",
+   "from": "svc:fixgateway",
+   "to": "ctr:g1-prometheus",
+   "proto": "metrics",
+   "label": "every 5 s",
+   "src": [
+    "g1-support-lab/monitoring/prometheus.yml"
+   ],
+   "story": "",
+   "bend": 0,
+   "job": "fixgateway"
+  },
+  {
+   "id": "svc:quoteengine>ctr:g1-prometheus",
+   "from": "svc:quoteengine",
+   "to": "ctr:g1-prometheus",
+   "proto": "metrics",
+   "label": "every 15 s",
+   "src": [
+    "g1-support-lab/monitoring/prometheus.yml"
+   ],
+   "story": "",
+   "bend": 0,
+   "job": "quoteengine"
+  },
+  {
+   "id": "svc:feed_handler>ctr:g1-prometheus",
+   "from": "svc:feed_handler",
+   "to": "ctr:g1-prometheus",
+   "proto": "metrics",
+   "label": "every 15 s",
+   "src": [
+    "g1-support-lab/monitoring/prometheus.yml"
+   ],
+   "story": "",
+   "bend": 0,
+   "job": "feed_handler"
+  },
+  {
+   "id": "svc:gap_proxy>ctr:g1-prometheus",
+   "from": "svc:gap_proxy",
+   "to": "ctr:g1-prometheus",
+   "proto": "metrics",
+   "label": "every 15 s",
+   "src": [
+    "g1-support-lab/monitoring/prometheus.yml"
+   ],
+   "story": "",
+   "bend": 0,
+   "job": "gap_request_proxy"
+  },
+  {
+   "id": "ext:alpaca>task:findw-pull-alpaca",
+   "from": "ext:alpaca",
+   "to": "task:findw-pull-alpaca",
+   "proto": "https",
+   "label": "bars API",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "task:findw-pull-alpaca>store:data-raw",
+   "from": "task:findw-pull-alpaca",
+   "to": "store:data-raw",
+   "proto": "file",
+   "label": ".json.gz",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "task:findw-pull-alpaca>schema:meta",
+   "from": "task:findw-pull-alpaca",
+   "to": "schema:meta",
+   "proto": "sql",
+   "label": "pull_state",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": -40
+  },
+  {
+   "id": "store:data-raw>task:findw-nightly",
+   "from": "store:data-raw",
+   "to": "task:findw-nightly",
+   "proto": "file",
+   "label": "",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "store:lean-data>task:findw-nightly",
+   "from": "store:lean-data",
+   "to": "task:findw-nightly",
+   "proto": "file",
+   "label": "LEAN zips",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "task:findw-nightly>schema:meta",
+   "from": "task:findw-nightly",
+   "to": "schema:meta",
+   "proto": "sql",
+   "label": "ingest_log",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "schema:mart>task:findw-mcp",
+   "from": "schema:mart",
+   "to": "task:findw-mcp",
+   "proto": "sql",
+   "label": "findw_reader",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "task:findw-mcp>dev:mac",
+   "from": "task:findw-mcp",
+   "to": "dev:mac",
+   "proto": "mcp",
+   "label": "MCP over tailnet",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": -30
+  },
+  {
+   "id": "schema:mart>task:g1-derived-load",
+   "from": "schema:mart",
+   "to": "task:g1-derived-load",
+   "proto": "sql",
+   "label": "nightly copy",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 30
+  },
+  {
+   "id": "task:g1-derived-load>store:kdbx",
+   "from": "task:g1-derived-load",
+   "to": "store:kdbx",
+   "proto": "q",
+   "label": "PyKX",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "task:g1-derived-load>store:oracle",
+   "from": "task:g1-derived-load",
+   "to": "store:oracle",
+   "proto": "sql",
+   "label": "oracledb",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "schema:mart>svc:feed-publisher",
+   "from": "schema:mart",
+   "to": "svc:feed-publisher",
+   "proto": "sql",
+   "label": "v_feed_replay",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 120
+  },
+  {
+   "id": "svc:feed-publisher>svc:feed_handler",
+   "from": "svc:feed-publisher",
+   "to": "svc:feed_handler",
+   "proto": "udp",
+   "label": "multicast 239.192.0.1:30001",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "svc:feed-publisher>svc:gap_proxy",
+   "from": "svc:feed-publisher",
+   "to": "svc:gap_proxy",
+   "proto": "tcp",
+   "label": "copy (P)",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "svc:gap_proxy>svc:feed_handler",
+   "from": "svc:gap_proxy",
+   "to": "svc:feed_handler",
+   "proto": "tcp",
+   "label": "retransmit (R)",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "svc:readiness>svc:windows-exporter",
+   "from": "svc:readiness",
+   "to": "svc:windows-exporter",
+   "proto": "file",
+   "label": ".prom",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "ctr:g1-prometheus>task:g1-agent-maintenance",
+   "from": "ctr:g1-prometheus",
+   "to": "task:g1-agent-maintenance",
+   "proto": "http",
+   "label": "alerts API",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "schema:dq>task:g1-agent-maintenance",
+   "from": "schema:dq",
+   "to": "task:g1-agent-maintenance",
+   "proto": "sql",
+   "label": "dq.results",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": -60
+  },
+  {
+   "id": "task:g1-agent-maintenance>schema:ops",
+   "from": "task:g1-agent-maintenance",
+   "to": "schema:ops",
+   "proto": "sql",
+   "label": "draft INC",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "task:g1-agent-maintenance>ctr:notify-ntfy",
+   "from": "task:g1-agent-maintenance",
+   "to": "ctr:notify-ntfy",
+   "proto": "push",
+   "label": "P1 → apps-g1-alerts",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "schema:ops>task:g1-agent-tickets",
+   "from": "schema:ops",
+   "to": "task:g1-agent-tickets",
+   "proto": "sql",
+   "label": "drafts",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "schema:ctx>task:g1-agent-tickets",
+   "from": "schema:ctx",
+   "to": "task:g1-agent-tickets",
+   "proto": "sql",
+   "label": "similar (pgvector)",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "task:g1-agent-tickets>svc:ollama",
+   "from": "task:g1-agent-tickets",
+   "to": "svc:ollama",
+   "proto": "http",
+   "label": "chat",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "schema:ops>task:g1-agent-docs",
+   "from": "schema:ops",
+   "to": "task:g1-agent-docs",
+   "proto": "sql",
+   "label": "resolved P1/P2",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 40
+  },
+  {
+   "id": "task:g1-agent-docs>svc:ollama",
+   "from": "task:g1-agent-docs",
+   "to": "svc:ollama",
+   "proto": "http",
+   "label": "chat",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "task:g1-agent-docs>store:git",
+   "from": "task:g1-agent-docs",
+   "to": "store:git",
+   "proto": "git",
+   "label": "draft branch",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 50
+  },
+  {
+   "id": "store:git>task:g1-agent-indexer",
+   "from": "store:git",
+   "to": "task:g1-agent-indexer",
+   "proto": "git",
+   "label": "main",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "task:g1-agent-indexer>svc:ollama",
+   "from": "task:g1-agent-indexer",
+   "to": "svc:ollama",
+   "proto": "http",
+   "label": "embed",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 30
+  },
+  {
+   "id": "task:g1-agent-indexer>schema:ctx",
+   "from": "task:g1-agent-indexer",
+   "to": "schema:ctx",
+   "proto": "sql",
+   "label": "chunks",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "schema:ops>svc:dashboard",
+   "from": "schema:ops",
+   "to": "svc:dashboard",
+   "proto": "sql",
+   "label": "dashboard_app",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "svc:dashboard>store:git",
+   "from": "svc:dashboard",
+   "to": "store:git",
+   "proto": "git",
+   "label": "accept draft",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 140
+  },
+  {
+   "id": "dev:phone>svc:dashboard",
+   "from": "dev:phone",
+   "to": "svc:dashboard",
+   "proto": "https",
+   "label": "tap → ticket",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 40
+  },
+  {
+   "id": "dev:mac>svc:dashboard",
+   "from": "dev:mac",
+   "to": "svc:dashboard",
+   "proto": "https",
+   "label": "Tailscale Serve :8100",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  },
+  {
+   "id": "ctr:notify-ntfy>dev:phone",
+   "from": "ctr:notify-ntfy",
+   "to": "dev:phone",
+   "proto": "push",
+   "label": "push",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": -40
+  },
+  {
+   "id": "ext:claude-code>ctr:notify-ntfy",
+   "from": "ext:claude-code",
+   "to": "ctr:notify-ntfy",
+   "proto": "http",
+   "label": "claude-tower",
+   "src": [
+    "overlay"
+   ],
+   "story": "",
+   "bend": 0
+  }
+ ],
+ "protocols": {
+  "sql": {
+   "family": "data",
+   "label": "SQL",
+   "dash": ""
+  },
+  "file": {
+   "family": "data",
+   "label": "Files",
+   "dash": "6 4"
+  },
+  "q": {
+   "family": "data",
+   "label": "q IPC",
+   "dash": "2 3"
+  },
+  "fix": {
+   "family": "trading",
+   "label": "FIX 4.4",
+   "dash": ""
+  },
+  "udp": {
+   "family": "trading",
+   "label": "UDP multicast",
+   "dash": "8 4"
+  },
+  "tcp": {
+   "family": "trading",
+   "label": "TCP",
+   "dash": "2 3"
+  },
+  "metrics": {
+   "family": "telemetry",
+   "label": "Metrics scrape",
+   "dash": "1 4"
+  },
+  "check": {
+   "family": "telemetry",
+   "label": "Quality checks",
+   "dash": "4 3"
+  },
+  "push": {
+   "family": "telemetry",
+   "label": "Push alert",
+   "dash": ""
+  },
+  "http": {
+   "family": "control",
+   "label": "HTTP API",
+   "dash": ""
+  },
+  "https": {
+   "family": "control",
+   "label": "HTTPS / tailnet",
+   "dash": "6 4"
+  },
+  "mcp": {
+   "family": "control",
+   "label": "MCP",
+   "dash": "2 3"
+  },
+  "git": {
+   "family": "control",
+   "label": "git",
+   "dash": "8 3 2 3"
+  }
+ },
+ "families": {
+  "data": {
+   "label": "Data",
+   "story": "Rows and files moving through the warehouse"
+  },
+  "trading": {
+   "label": "Trading & market data",
+   "story": "Orders, fills and quotes"
+  },
+  "telemetry": {
+   "label": "Telemetry & alerts",
+   "story": "Health numbers, checks and alarms"
+  },
+  "control": {
+   "label": "APIs & control",
+   "story": "Requests between tools and people"
+  }
+ },
+ "schemas": [
+  "meta",
+  "stg",
+  "core",
+  "mart",
+  "dq",
+  "ops",
+  "ctx"
+ ],
+ "tables": [
+  {
+   "id": "tbl:meta.ingest_log",
+   "schema": "meta",
+   "name": "ingest_log",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "sha256",
+     "type": "char(64)",
+     "nullable": false
+    },
+    {
+     "name": "file_path",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "file_type",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "row_count",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "loaded_at",
+     "type": "timestamptz",
+     "nullable": false
+    }
+   ],
+   "pk": [
+    "file_path"
+   ],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/002_meta.sql",
+    "financial_data_warehouse/sql/migrations/003_stg.sql"
+   ],
+   "doc": "One row per source file loaded into stg. sha256 makes reloading the same file a no-op."
+  },
+  {
+   "id": "tbl:stg.equity_bar_daily",
+   "schema": "stg",
+   "name": "equity_bar_daily",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "ticker",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "bar_date",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "open",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "high",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "low",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "close",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "volume",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "source_file",
+     "type": "text",
+     "nullable": false
+    }
+   ],
+   "pk": [],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/003_stg.sql"
+   ],
+   "doc": "",
+   "ingest": [
+    "equity_daily"
+   ],
+   "checks": [
+    "ohlc_daily",
+    "duplicate_keys_daily",
+    "unmapped_bars"
+   ]
+  },
+  {
+   "id": "tbl:stg.equity_bar_minute",
+   "schema": "stg",
+   "name": "equity_bar_minute",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "ticker",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "bar_date",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "ms_of_day",
+     "type": "integer",
+     "nullable": false,
+     "doc": "bar start, milliseconds since midnight America/New_York"
+    },
+    {
+     "name": "open",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "high",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "low",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "close",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "volume",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "source_file",
+     "type": "text",
+     "nullable": false
+    }
+   ],
+   "pk": [],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/003_stg.sql"
+   ],
+   "doc": "",
+   "ingest": [
+    "equity_minute_trade"
+   ],
+   "checks": [
+    "ohlc_minute",
+    "duplicate_keys_minute",
+    "unmapped_bars"
+   ]
+  },
+  {
+   "id": "tbl:stg.map_file",
+   "schema": "stg",
+   "name": "map_file",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "permtick",
+     "type": "text",
+     "nullable": false,
+     "doc": "file name, the current ticker"
+    },
+    {
+     "name": "row_date",
+     "type": "date",
+     "nullable": false,
+     "doc": "ticker was in use up to and including this date"
+    },
+    {
+     "name": "ticker",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "exchange",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source_file",
+     "type": "text",
+     "nullable": false
+    }
+   ],
+   "pk": [],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/003_stg.sql"
+   ],
+   "doc": "",
+   "ingest": [
+    "map_file"
+   ],
+   "checks": [
+    "duplicate_keys_map"
+   ]
+  },
+  {
+   "id": "tbl:stg.factor_file",
+   "schema": "stg",
+   "name": "factor_file",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "permtick",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "row_date",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "price_factor",
+     "type": "numeric",
+     "nullable": false
+    },
+    {
+     "name": "split_factor",
+     "type": "numeric",
+     "nullable": false
+    },
+    {
+     "name": "reference_price",
+     "type": "numeric",
+     "nullable": false
+    },
+    {
+     "name": "source_file",
+     "type": "text",
+     "nullable": false
+    }
+   ],
+   "pk": [],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/003_stg.sql"
+   ],
+   "doc": "",
+   "ingest": [
+    "factor_file"
+   ],
+   "checks": [
+    "duplicate_keys_factor"
+   ]
+  },
+  {
+   "id": "tbl:core.dim_security",
+   "schema": "core",
+   "name": "dim_security",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "security_id",
+     "type": "integer",
+     "nullable": false,
+     "identity": true
+    },
+    {
+     "name": "permtick",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "security_type",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "first_date",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "exchange",
+     "type": "text",
+     "nullable": true
+    }
+   ],
+   "pk": [
+    "security_id"
+   ],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/004_core.sql"
+   ],
+   "doc": "One row per security. permtick is the map file name (the current ticker), so a renamed ticker keeps one security_id.",
+   "fingerprinted": true
+  },
+  {
+   "id": "tbl:core.security_ticker_history",
+   "schema": "core",
+   "name": "security_ticker_history",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "security_id",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "ticker",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "valid_from",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "valid_to",
+     "type": "date",
+     "nullable": false
+    }
+   ],
+   "pk": [
+    "security_id",
+    "valid_from"
+   ],
+   "fks": [
+    {
+     "columns": [
+      "security_id"
+     ],
+     "table": "core.dim_security",
+     "refColumns": null
+    }
+   ],
+   "src": [
+    "financial_data_warehouse/sql/migrations/004_core.sql"
+   ],
+   "doc": "Which ticker a security used on which dates, from its map file. Ranges are inclusive.",
+   "fingerprinted": true
+  },
+  {
+   "id": "tbl:core.dim_trading_day",
+   "schema": "core",
+   "name": "dim_trading_day",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "trading_day",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "early_close",
+     "type": "boolean",
+     "nullable": false
+    }
+   ],
+   "pk": [
+    "trading_day"
+   ],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/004_core.sql",
+    "financial_data_warehouse/sql/migrations/009_early_close.sql"
+   ],
+   "doc": "US equity trading days, taken from SPY daily bars.",
+   "fingerprinted": true
+  },
+  {
+   "id": "tbl:core.fact_equity_bar",
+   "schema": "core",
+   "name": "fact_equity_bar",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "security_id",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "resolution",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "ts",
+     "type": "timestamptz",
+     "nullable": false
+    },
+    {
+     "name": "trade_date",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "open",
+     "type": "numeric(18,4)",
+     "nullable": false
+    },
+    {
+     "name": "high",
+     "type": "numeric(18,4)",
+     "nullable": false
+    },
+    {
+     "name": "low",
+     "type": "numeric(18,4)",
+     "nullable": false
+    },
+    {
+     "name": "close",
+     "type": "numeric(18,4)",
+     "nullable": false
+    },
+    {
+     "name": "volume",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "source_id",
+     "type": "smallint",
+     "nullable": false
+    }
+   ],
+   "pk": [
+    "security_id",
+    "resolution",
+    "ts",
+    "source_id"
+   ],
+   "fks": [
+    {
+     "columns": [
+      "security_id"
+     ],
+     "table": "core.dim_security",
+     "refColumns": null
+    },
+    {
+     "columns": [
+      "source_id"
+     ],
+     "table": "meta.source",
+     "refColumns": null
+    }
+   ],
+   "src": [
+    "financial_data_warehouse/sql/migrations/004_core.sql",
+    "financial_data_warehouse/sql/migrations/008_sources.sql"
+   ],
+   "doc": "",
+   "checks": [
+    "missing_daily_bars",
+    "minute_bars_per_day"
+   ],
+   "fingerprinted": true
+  },
+  {
+   "id": "tbl:core.adjustment_factor",
+   "schema": "core",
+   "name": "adjustment_factor",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "security_id",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "valid_from",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "valid_to",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "price_factor",
+     "type": "numeric",
+     "nullable": false
+    },
+    {
+     "name": "split_factor",
+     "type": "numeric",
+     "nullable": false
+    }
+   ],
+   "pk": [
+    "security_id",
+    "valid_to"
+   ],
+   "fks": [
+    {
+     "columns": [
+      "security_id"
+     ],
+     "table": "core.dim_security",
+     "refColumns": null
+    }
+   ],
+   "src": [
+    "financial_data_warehouse/sql/migrations/004_core.sql"
+   ],
+   "doc": "Factor file rows as inclusive date ranges: a bar on trade_date uses the row where valid_from <= trade_date <= valid_to.",
+   "fingerprinted": true
+  },
+  {
+   "id": "tbl:core.corporate_action",
+   "schema": "core",
+   "name": "corporate_action",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "security_id",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "ex_date",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "action_type",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "value",
+     "type": "numeric",
+     "nullable": false,
+     "doc": "split: new shares per old share. dividend: dollars per share, unadjusted"
+    },
+    {
+     "name": "factor_row_date",
+     "type": "date",
+     "nullable": false,
+     "doc": "the factor file row just before the ex date"
+    }
+   ],
+   "pk": [
+    "security_id",
+    "ex_date",
+    "action_type"
+   ],
+   "fks": [
+    {
+     "columns": [
+      "security_id"
+     ],
+     "table": "core.dim_security",
+     "refColumns": null
+    }
+   ],
+   "src": [
+    "financial_data_warehouse/sql/migrations/004_core.sql"
+   ],
+   "doc": "Splits and dividends implied by consecutive factor file rows.",
+   "fingerprinted": true
+  },
+  {
+   "id": "tbl:dq.results",
+   "schema": "dq",
+   "name": "results",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "run_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "check_name",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "object",
+     "type": "text",
+     "nullable": false,
+     "doc": "the table or view checked"
+    },
+    {
+     "name": "failed_rows",
+     "type": "integer",
+     "nullable": false,
+     "doc": "error findings"
+    },
+    {
+     "name": "warned_rows",
+     "type": "integer",
+     "nullable": false,
+     "doc": "warnings, including errors downgraded by dq_exceptions.yaml"
+    },
+    {
+     "name": "passed",
+     "type": "boolean",
+     "nullable": false
+    },
+    {
+     "name": "detail",
+     "type": "text",
+     "nullable": true,
+     "doc": "the first findings, each naming its row"
+    },
+    {
+     "name": "ran_at",
+     "type": "timestamptz",
+     "nullable": false
+    }
+   ],
+   "pk": [
+    "run_id",
+    "check_name"
+   ],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/005_dq.sql"
+   ],
+   "doc": ""
+  },
+  {
+   "id": "tbl:stg.option_quote_minute",
+   "schema": "stg",
+   "name": "option_quote_minute",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "underlying",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "quote_date",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "style",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "option_right",
+     "type": "char(1)",
+     "nullable": false
+    },
+    {
+     "name": "strike",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "expiry",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "ms_of_day",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "bid_open",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "bid_high",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "bid_low",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "bid_close",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "bid_size",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "ask_open",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "ask_high",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "ask_low",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "ask_close",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "ask_size",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "source_file",
+     "type": "text",
+     "nullable": false
+    }
+   ],
+   "pk": [],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/006_options.sql"
+   ],
+   "doc": "",
+   "ingest": [
+    "option_quote_minute"
+   ],
+   "checks": [
+    "option_expiry_not_before_quote",
+    "duplicate_keys_option"
+   ]
+  },
+  {
+   "id": "tbl:core.fact_option_quote",
+   "schema": "core",
+   "name": "fact_option_quote",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "underlying_id",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "expiry",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "strike",
+     "type": "numeric(18,4)",
+     "nullable": false
+    },
+    {
+     "name": "option_right",
+     "type": "char(1)",
+     "nullable": false
+    },
+    {
+     "name": "style",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "ts",
+     "type": "timestamptz",
+     "nullable": false,
+     "doc": "bar start"
+    },
+    {
+     "name": "trade_date",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "bid_open",
+     "type": "numeric(18,4)",
+     "nullable": true
+    },
+    {
+     "name": "bid_high",
+     "type": "numeric(18,4)",
+     "nullable": true
+    },
+    {
+     "name": "bid_low",
+     "type": "numeric(18,4)",
+     "nullable": true
+    },
+    {
+     "name": "bid_close",
+     "type": "numeric(18,4)",
+     "nullable": true
+    },
+    {
+     "name": "bid_size",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "ask_open",
+     "type": "numeric(18,4)",
+     "nullable": true
+    },
+    {
+     "name": "ask_high",
+     "type": "numeric(18,4)",
+     "nullable": true
+    },
+    {
+     "name": "ask_low",
+     "type": "numeric(18,4)",
+     "nullable": true
+    },
+    {
+     "name": "ask_close",
+     "type": "numeric(18,4)",
+     "nullable": true
+    },
+    {
+     "name": "ask_size",
+     "type": "bigint",
+     "nullable": true
+    }
+   ],
+   "pk": [
+    "underlying_id",
+    "expiry",
+    "strike",
+    "option_right",
+    "ts"
+   ],
+   "fks": [
+    {
+     "columns": [
+      "underlying_id"
+     ],
+     "table": "core.dim_security",
+     "refColumns": null
+    }
+   ],
+   "src": [
+    "financial_data_warehouse/sql/migrations/006_options.sql"
+   ],
+   "doc": "Partitioned by month of ts (UTC month boundaries). Partitions are created by core.ensure_option_quote_partition, which the option transform calls for every month present in staging.",
+   "partitionBy": "range (ts)",
+   "checks": [
+    "option_bid_le_ask",
+    "option_no_negative_values"
+   ],
+   "fingerprinted": true
+  },
+  {
+   "id": "tbl:meta.source",
+   "schema": "meta",
+   "name": "source",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "source_id",
+     "type": "smallint",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "priority",
+     "type": "smallint",
+     "nullable": false,
+     "doc": "lower wins in mart.v_equity_bar_best"
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": false
+    }
+   ],
+   "pk": [
+    "source_id"
+   ],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/008_sources.sql"
+   ],
+   "doc": ""
+  },
+  {
+   "id": "tbl:meta.pull_state",
+   "schema": "meta",
+   "name": "pull_state",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "source",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "dataset",
+     "type": "text",
+     "nullable": false,
+     "doc": "daily or minute"
+    },
+    {
+     "name": "ticker",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "period",
+     "type": "text",
+     "nullable": false,
+     "doc": "yyyy (daily) or yyyy-mm (minute)"
+    },
+    {
+     "name": "file_path",
+     "type": "text",
+     "nullable": false,
+     "doc": "relative to the raw folder"
+    },
+    {
+     "name": "rows",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "complete",
+     "type": "boolean",
+     "nullable": false
+    },
+    {
+     "name": "pulled_at",
+     "type": "timestamptz",
+     "nullable": false
+    }
+   ],
+   "pk": [
+    "source",
+    "dataset",
+    "ticker",
+    "period"
+   ],
+   "fks": [
+    {
+     "columns": [
+      "source"
+     ],
+     "table": "meta.source",
+     "refColumns": [
+      "name"
+     ]
+    }
+   ],
+   "src": [
+    "financial_data_warehouse/sql/migrations/008_sources.sql"
+   ],
+   "doc": "One row per landed period file of a pulled source. complete means it was pulled after the period ended, so the pull skips it from then on. Open periods (complete = false) are pulled again on every run."
+  },
+  {
+   "id": "tbl:stg.alpaca_bar",
+   "schema": "stg",
+   "name": "alpaca_bar",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "ticker",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "timeframe",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "ts",
+     "type": "timestamptz",
+     "nullable": false
+    },
+    {
+     "name": "open",
+     "type": "numeric",
+     "nullable": false
+    },
+    {
+     "name": "high",
+     "type": "numeric",
+     "nullable": false
+    },
+    {
+     "name": "low",
+     "type": "numeric",
+     "nullable": false
+    },
+    {
+     "name": "close",
+     "type": "numeric",
+     "nullable": false
+    },
+    {
+     "name": "volume",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "trade_count",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "vwap",
+     "type": "numeric",
+     "nullable": true
+    },
+    {
+     "name": "feed",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "source_file",
+     "type": "text",
+     "nullable": false
+    }
+   ],
+   "pk": [],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/migrations/008_sources.sql"
+   ],
+   "doc": "Alpaca bars exactly as landed: dollars, bar start in UTC.",
+   "ingest": [
+    "alpaca_bar"
+   ],
+   "checks": [
+    "ohlc_alpaca",
+    "duplicate_keys_alpaca"
+   ]
+  },
+  {
+   "id": "tbl:ops.tickets",
+   "schema": "ops",
+   "name": "tickets",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "ticket_id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": true
+    },
+    {
+     "name": "ticket_key",
+     "type": "text",
+     "nullable": false,
+     "doc": "set by the insert trigger, never by the client"
+    },
+    {
+     "name": "issue_type",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "priority",
+     "type": "text",
+     "nullable": false,
+     "doc": "P1 = trading impacted"
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "title",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "runbook_path",
+     "type": "text",
+     "nullable": true,
+     "doc": "repo path, e.g. docs/runbooks/RB-001.md"
+    },
+    {
+     "name": "postmortem_path",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "created_by",
+     "type": "text",
+     "nullable": false,
+     "doc": "agent name or person"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamptz",
+     "nullable": false
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "doc": "ctx.documents.version_ref for ticket sources"
+    },
+    {
+     "name": "resolved_at",
+     "type": "timestamptz",
+     "nullable": true
+    }
+   ],
+   "pk": [
+    "ticket_id"
+   ],
+   "fks": [],
+   "src": [
+    "g1-support-lab/db/postgres/migrations/001_ops.sql",
+    "g1-support-lab/db/postgres/migrations/003_grants.sql"
+   ],
+   "doc": ""
+  },
+  {
+   "id": "tbl:ops.ticket_events",
+   "schema": "ops",
+   "name": "ticket_events",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "event_id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": true
+    },
+    {
+     "name": "ticket_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "actor",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "event_type",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "body",
+     "type": "jsonb",
+     "nullable": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamptz",
+     "nullable": false
+    }
+   ],
+   "pk": [
+    "event_id"
+   ],
+   "fks": [
+    {
+     "columns": [
+      "ticket_id"
+     ],
+     "table": "ops.tickets",
+     "refColumns": [
+      "ticket_id"
+     ]
+    }
+   ],
+   "src": [
+    "g1-support-lab/db/postgres/migrations/001_ops.sql",
+    "g1-support-lab/db/postgres/migrations/004_agent_roles.sql",
+    "g1-support-lab/db/postgres/migrations/005_reopened_event.sql"
+   ],
+   "doc": "Append-only history of every change, human or agent."
+  },
+  {
+   "id": "tbl:ops.agent_runs",
+   "schema": "ops",
+   "name": "agent_runs",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "run_id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": true
+    },
+    {
+     "name": "agent_name",
+     "type": "text",
+     "nullable": false,
+     "doc": "maintenance, tickets, docs, indexer"
+    },
+    {
+     "name": "trigger_type",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "trigger_ref",
+     "type": "text",
+     "nullable": true,
+     "doc": "alert name, schedule id, chaos run, git SHA or ticket key"
+    },
+    {
+     "name": "model",
+     "type": "text",
+     "nullable": true,
+     "doc": "Ollama model tag; null for the indexer's non-chat work"
+    },
+    {
+     "name": "started_at",
+     "type": "timestamptz",
+     "nullable": false
+    },
+    {
+     "name": "finished_at",
+     "type": "timestamptz",
+     "nullable": true
+    },
+    {
+     "name": "outcome",
+     "type": "text",
+     "nullable": true,
+     "doc": "null while running"
+    },
+    {
+     "name": "output",
+     "type": "jsonb",
+     "nullable": true
+    }
+   ],
+   "pk": [
+    "run_id"
+   ],
+   "fks": [],
+   "src": [
+    "g1-support-lab/db/postgres/migrations/001_ops.sql",
+    "g1-support-lab/db/postgres/migrations/004_agent_roles.sql"
+   ],
+   "doc": "One row per agent invocation, including runs that produce nothing."
+  },
+  {
+   "id": "tbl:ctx.documents",
+   "schema": "ctx",
+   "name": "documents",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "doc_id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": true
+    },
+    {
+     "name": "source_kind",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "source_ref",
+     "type": "text",
+     "nullable": false,
+     "doc": "repo path or ops ticket key"
+    },
+    {
+     "name": "doc_type",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "version_ref",
+     "type": "text",
+     "nullable": false,
+     "doc": "git SHA or ticket updated_at"
+    },
+    {
+     "name": "indexed_at",
+     "type": "timestamptz",
+     "nullable": false
+    }
+   ],
+   "pk": [
+    "doc_id"
+   ],
+   "fks": [],
+   "src": [
+    "g1-support-lab/db/postgres/migrations/002_ctx.sql"
+   ],
+   "doc": ""
+  },
+  {
+   "id": "tbl:ctx.chunks",
+   "schema": "ctx",
+   "name": "chunks",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "chunk_id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": true
+    },
+    {
+     "name": "doc_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "chunk_no",
+     "type": "int",
+     "nullable": false
+    },
+    {
+     "name": "heading_path",
+     "type": "text",
+     "nullable": true,
+     "doc": "e.g. 'RB-001 > Diagnosis'"
+    },
+    {
+     "name": "content",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "embedding",
+     "type": "vector(768)",
+     "nullable": false,
+     "doc": "nomic-embed-text"
+    },
+    {
+     "name": "embed_model",
+     "type": "text",
+     "nullable": false
+    }
+   ],
+   "pk": [
+    "chunk_id"
+   ],
+   "fks": [
+    {
+     "columns": [
+      "doc_id"
+     ],
+     "table": "ctx.documents",
+     "refColumns": [
+      "doc_id"
+     ]
+    }
+   ],
+   "src": [
+    "g1-support-lab/db/postgres/migrations/002_ctx.sql"
+   ],
+   "doc": ""
+  },
+  {
+   "id": "tbl:ctx.agent_memory",
+   "schema": "ctx",
+   "name": "agent_memory",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "memory_id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": true
+    },
+    {
+     "name": "agent_name",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "ticket_id",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "payload",
+     "type": "jsonb",
+     "nullable": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamptz",
+     "nullable": false
+    }
+   ],
+   "pk": [
+    "memory_id"
+   ],
+   "fks": [
+    {
+     "columns": [
+      "ticket_id"
+     ],
+     "table": "ops.tickets",
+     "refColumns": [
+      "ticket_id"
+     ]
+    }
+   ],
+   "src": [
+    "g1-support-lab/db/postgres/migrations/002_ctx.sql",
+    "g1-support-lab/db/postgres/migrations/004_agent_roles.sql"
+   ],
+   "doc": ""
+  },
+  {
+   "id": "tbl:ops.maintenance_windows",
+   "schema": "ops",
+   "name": "maintenance_windows",
+   "kind": "table",
+   "columns": [
+    {
+     "name": "window_id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": true
+    },
+    {
+     "name": "starts_at",
+     "type": "timestamptz",
+     "nullable": false
+    },
+    {
+     "name": "ends_at",
+     "type": "timestamptz",
+     "nullable": false
+    },
+    {
+     "name": "reason",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "change_key",
+     "type": "text",
+     "nullable": true,
+     "doc": "the Change ticket for the work, when there is one"
+    },
+    {
+     "name": "created_by",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamptz",
+     "nullable": false
+    }
+   ],
+   "pk": [
+    "window_id"
+   ],
+   "fks": [],
+   "src": [
+    "g1-support-lab/db/postgres/migrations/006_resolved_at_and_maintenance_windows.sql"
+   ],
+   "doc": ""
+  },
+  {
+   "id": "tbl:mart.v_equity_bar_adjusted",
+   "schema": "mart",
+   "name": "v_equity_bar_adjusted",
+   "kind": "view",
+   "columns": [
+    {
+     "name": "security_id",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "ticker",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "resolution",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "ts",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "trade_date",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "factor",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "open",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "high",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "low",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "close",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "volume",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "raw_close",
+     "type": "",
+     "nullable": true
+    }
+   ],
+   "pk": [],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ],
+   "doc": "Split and dividend adjusted bars, the way LEAN's Adjusted normalization does it: raw * price_factor * split_factor. Volume is divided by the split factor so share counts stay comparable across a split. LEAN bars only: the factors come from LEAN's factor files, and reconcile, export and the backtest compare with LEAN."
+  },
+  {
+   "id": "tbl:mart.v_equity_bar_by_source",
+   "schema": "mart",
+   "name": "v_equity_bar_by_source",
+   "kind": "view",
+   "columns": [
+    {
+     "name": "security_id",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "ticker",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "source",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "resolution",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "ts",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "trade_date",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "open",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "high",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "low",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "close",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "volume",
+     "type": "",
+     "nullable": true
+    }
+   ],
+   "pk": [],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ],
+   "doc": "Raw (unadjusted) bars from every source, named."
+  },
+  {
+   "id": "tbl:mart.v_equity_bar_best",
+   "schema": "mart",
+   "name": "v_equity_bar_best",
+   "kind": "view",
+   "columns": [
+    {
+     "name": "security_id",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "ticker",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "source",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "resolution",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "ts",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "trade_date",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "open",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "high",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "low",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "close",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "volume",
+     "type": "",
+     "nullable": true
+    }
+   ],
+   "pk": [],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ],
+   "doc": "One raw bar per (security, resolution, ts): the one from the source with the lowest priority number."
+  },
+  {
+   "id": "tbl:mart.v_equity_bar_source_diff",
+   "schema": "mart",
+   "name": "v_equity_bar_source_diff",
+   "kind": "view",
+   "columns": [
+    {
+     "name": "security_id",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "ticker",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "resolution",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "ts",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "trade_date",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "source_a",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "source_b",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "close_a",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "close_b",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "close_diff",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "close_rel_diff",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "volume_a",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "volume_b",
+     "type": "",
+     "nullable": true
+    }
+   ],
+   "pk": [],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ],
+   "doc": "Bars two sources both have, side by side. source_a is the preferred one (lower priority number).",
+   "checks": [
+    "cross_source_close"
+   ]
+  },
+  {
+   "id": "tbl:mart.v_option_chain_eod",
+   "schema": "mart",
+   "name": "v_option_chain_eod",
+   "kind": "view",
+   "columns": [
+    {
+     "name": "underlying",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "trade_date",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "expiry",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "days_to_expiry",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "strike",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "option_right",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "style",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "bid",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "ask",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "mid",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "spread",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "bid_size",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "ask_size",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "quote_ts",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "underlying_price",
+     "type": "",
+     "nullable": true
+    }
+   ],
+   "pk": [],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/transforms/095_mart_option_views.sql"
+   ],
+   "doc": ""
+  },
+  {
+   "id": "tbl:mart.v_feed_replay",
+   "schema": "mart",
+   "name": "v_feed_replay",
+   "kind": "view",
+   "columns": [
+    {
+     "name": "trade_date",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "ts_ns",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "symbol",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "bid",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "ask",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "bid_size",
+     "type": "",
+     "nullable": true
+    },
+    {
+     "name": "ask_size",
+     "type": "",
+     "nullable": true
+    }
+   ],
+   "pk": [],
+   "fks": [],
+   "src": [
+    "financial_data_warehouse/sql/transforms/095_mart_option_views.sql"
+   ],
+   "doc": "Quote stream for feed replay: one row per contract per minute, stamped at bar end (when the closing quote is known). ts_ns is nanoseconds since the Unix epoch, UTC. symbol is the compact OCC form: root, yyMMdd, C or P, strike x 1000 in 8 digits, for example SPY230901C00430000. Consumers sort by (ts_ns, symbol); the export does."
+  }
+ ],
+ "tableEdges": [
+  {
+   "from": "tbl:stg.map_file",
+   "to": "tbl:core.dim_security",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/010_dim_security.sql"
+   ]
+  },
+  {
+   "from": "tbl:stg.equity_bar_daily",
+   "to": "tbl:core.dim_security",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/010_dim_security.sql"
+   ]
+  },
+  {
+   "from": "tbl:stg.alpaca_bar",
+   "to": "tbl:core.dim_security",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/010_dim_security.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.dim_security",
+   "to": "tbl:core.security_ticker_history",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/020_security_ticker_history.sql"
+   ]
+  },
+  {
+   "from": "tbl:stg.map_file",
+   "to": "tbl:core.security_ticker_history",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/020_security_ticker_history.sql"
+   ]
+  },
+  {
+   "from": "tbl:stg.alpaca_bar",
+   "to": "tbl:core.dim_trading_day",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/030_dim_trading_day.sql"
+   ]
+  },
+  {
+   "from": "tbl:stg.equity_bar_daily",
+   "to": "tbl:core.dim_trading_day",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/030_dim_trading_day.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.dim_security",
+   "to": "tbl:core.fact_equity_bar",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/040_fact_equity_bar.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.security_ticker_history",
+   "to": "tbl:core.fact_equity_bar",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/040_fact_equity_bar.sql"
+   ]
+  },
+  {
+   "from": "tbl:meta.source",
+   "to": "tbl:core.fact_equity_bar",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/040_fact_equity_bar.sql"
+   ]
+  },
+  {
+   "from": "tbl:stg.alpaca_bar",
+   "to": "tbl:core.fact_equity_bar",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/040_fact_equity_bar.sql"
+   ]
+  },
+  {
+   "from": "tbl:stg.equity_bar_daily",
+   "to": "tbl:core.fact_equity_bar",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/040_fact_equity_bar.sql"
+   ]
+  },
+  {
+   "from": "tbl:stg.equity_bar_minute",
+   "to": "tbl:core.fact_equity_bar",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/040_fact_equity_bar.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.dim_security",
+   "to": "tbl:core.adjustment_factor",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/050_adjustment_factor.sql"
+   ]
+  },
+  {
+   "from": "tbl:stg.factor_file",
+   "to": "tbl:core.adjustment_factor",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/050_adjustment_factor.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.dim_security",
+   "to": "tbl:core.corporate_action",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/060_corporate_action.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.dim_trading_day",
+   "to": "tbl:core.corporate_action",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/060_corporate_action.sql"
+   ]
+  },
+  {
+   "from": "tbl:stg.factor_file",
+   "to": "tbl:core.corporate_action",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/060_corporate_action.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.dim_security",
+   "to": "tbl:core.fact_option_quote",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/070_fact_option_quote.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.security_ticker_history",
+   "to": "tbl:core.fact_option_quote",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/070_fact_option_quote.sql"
+   ]
+  },
+  {
+   "from": "tbl:stg.option_quote_minute",
+   "to": "tbl:core.fact_option_quote",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/070_fact_option_quote.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.adjustment_factor",
+   "to": "tbl:mart.v_equity_bar_adjusted",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.dim_security",
+   "to": "tbl:mart.v_equity_bar_adjusted",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.fact_equity_bar",
+   "to": "tbl:mart.v_equity_bar_adjusted",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:meta.source",
+   "to": "tbl:mart.v_equity_bar_adjusted",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.dim_security",
+   "to": "tbl:mart.v_equity_bar_by_source",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.fact_equity_bar",
+   "to": "tbl:mart.v_equity_bar_by_source",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:meta.source",
+   "to": "tbl:mart.v_equity_bar_by_source",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.dim_security",
+   "to": "tbl:mart.v_equity_bar_best",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.fact_equity_bar",
+   "to": "tbl:mart.v_equity_bar_best",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:meta.source",
+   "to": "tbl:mart.v_equity_bar_best",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.dim_security",
+   "to": "tbl:mart.v_equity_bar_source_diff",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.fact_equity_bar",
+   "to": "tbl:mart.v_equity_bar_source_diff",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:meta.source",
+   "to": "tbl:mart.v_equity_bar_source_diff",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/090_mart_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.dim_security",
+   "to": "tbl:mart.v_option_chain_eod",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/095_mart_option_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.fact_equity_bar",
+   "to": "tbl:mart.v_option_chain_eod",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/095_mart_option_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.fact_option_quote",
+   "to": "tbl:mart.v_option_chain_eod",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/095_mart_option_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:meta.source",
+   "to": "tbl:mart.v_option_chain_eod",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/095_mart_option_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.dim_security",
+   "to": "tbl:mart.v_feed_replay",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/095_mart_option_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.fact_option_quote",
+   "to": "tbl:mart.v_feed_replay",
+   "kind": "lineage",
+   "via": [
+    "financial_data_warehouse/sql/transforms/095_mart_option_views.sql"
+   ]
+  },
+  {
+   "from": "tbl:core.security_ticker_history",
+   "to": "tbl:core.dim_security",
+   "kind": "fk",
+   "via": [
+    "security_id → core.dim_security"
+   ]
+  },
+  {
+   "from": "tbl:core.fact_equity_bar",
+   "to": "tbl:core.dim_security",
+   "kind": "fk",
+   "via": [
+    "security_id → core.dim_security"
+   ]
+  },
+  {
+   "from": "tbl:core.fact_equity_bar",
+   "to": "tbl:meta.source",
+   "kind": "fk",
+   "via": [
+    "source_id → meta.source"
+   ]
+  },
+  {
+   "from": "tbl:core.adjustment_factor",
+   "to": "tbl:core.dim_security",
+   "kind": "fk",
+   "via": [
+    "security_id → core.dim_security"
+   ]
+  },
+  {
+   "from": "tbl:core.corporate_action",
+   "to": "tbl:core.dim_security",
+   "kind": "fk",
+   "via": [
+    "security_id → core.dim_security"
+   ]
+  },
+  {
+   "from": "tbl:core.fact_option_quote",
+   "to": "tbl:core.dim_security",
+   "kind": "fk",
+   "via": [
+    "underlying_id → core.dim_security"
+   ]
+  },
+  {
+   "from": "tbl:meta.pull_state",
+   "to": "tbl:meta.source",
+   "kind": "fk",
+   "via": [
+    "source → meta.source"
+   ]
+  },
+  {
+   "from": "tbl:ops.ticket_events",
+   "to": "tbl:ops.tickets",
+   "kind": "fk",
+   "via": [
+    "ticket_id → ops.tickets"
+   ]
+  },
+  {
+   "from": "tbl:ctx.chunks",
+   "to": "tbl:ctx.documents",
+   "kind": "fk",
+   "via": [
+    "doc_id → ctx.documents"
+   ]
+  },
+  {
+   "from": "tbl:ctx.agent_memory",
+   "to": "tbl:ops.tickets",
+   "kind": "fk",
+   "via": [
+    "ticket_id → ops.tickets"
+   ]
+  },
+  {
+   "from": "tbl:stg.equity_bar_daily",
+   "to": "tbl:dq.results",
+   "kind": "check",
+   "via": [
+    "ohlc_daily",
+    "duplicate_keys_daily",
+    "unmapped_bars"
+   ]
+  },
+  {
+   "from": "tbl:stg.equity_bar_minute",
+   "to": "tbl:dq.results",
+   "kind": "check",
+   "via": [
+    "ohlc_minute",
+    "duplicate_keys_minute",
+    "unmapped_bars"
+   ]
+  },
+  {
+   "from": "tbl:stg.map_file",
+   "to": "tbl:dq.results",
+   "kind": "check",
+   "via": [
+    "duplicate_keys_map"
+   ]
+  },
+  {
+   "from": "tbl:stg.factor_file",
+   "to": "tbl:dq.results",
+   "kind": "check",
+   "via": [
+    "duplicate_keys_factor"
+   ]
+  },
+  {
+   "from": "tbl:core.fact_equity_bar",
+   "to": "tbl:dq.results",
+   "kind": "check",
+   "via": [
+    "missing_daily_bars",
+    "minute_bars_per_day"
+   ]
+  },
+  {
+   "from": "tbl:core.fact_option_quote",
+   "to": "tbl:dq.results",
+   "kind": "check",
+   "via": [
+    "option_bid_le_ask",
+    "option_no_negative_values"
+   ]
+  },
+  {
+   "from": "tbl:stg.option_quote_minute",
+   "to": "tbl:dq.results",
+   "kind": "check",
+   "via": [
+    "option_expiry_not_before_quote",
+    "duplicate_keys_option"
+   ]
+  },
+  {
+   "from": "tbl:stg.alpaca_bar",
+   "to": "tbl:dq.results",
+   "kind": "check",
+   "via": [
+    "ohlc_alpaca",
+    "duplicate_keys_alpaca"
+   ]
+  },
+  {
+   "from": "tbl:mart.v_equity_bar_source_diff",
+   "to": "tbl:dq.results",
+   "kind": "check",
+   "via": [
+    "cross_source_close"
+   ]
+  }
+ ],
+ "emitters": [
+  {
+   "id": "em-scrape-windows",
+   "node": "ctr:g1-prometheus",
+   "label": "Scrape windows",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 15
+   },
+   "flow": [
+    [
+     {
+      "edge": "svc:windows-exporter>ctr:g1-prometheus",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "g1-support-lab/monitoring/prometheus.yml",
+   "tone": 0
+  },
+  {
+   "id": "em-scrape-mockexchange",
+   "node": "ctr:g1-prometheus",
+   "label": "Scrape mockexchange",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 15
+   },
+   "flow": [
+    [
+     {
+      "edge": "svc:mockexchange>ctr:g1-prometheus",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "g1-support-lab/monitoring/prometheus.yml",
+   "tone": 0
+  },
+  {
+   "id": "em-scrape-fixgateway",
+   "node": "ctr:g1-prometheus",
+   "label": "Scrape fixgateway",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 5
+   },
+   "flow": [
+    [
+     {
+      "edge": "svc:fixgateway>ctr:g1-prometheus",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "g1-support-lab/monitoring/prometheus.yml",
+   "tone": 0
+  },
+  {
+   "id": "em-scrape-quoteengine",
+   "node": "ctr:g1-prometheus",
+   "label": "Scrape quoteengine",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 15
+   },
+   "flow": [
+    [
+     {
+      "edge": "svc:quoteengine>ctr:g1-prometheus",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "g1-support-lab/monitoring/prometheus.yml",
+   "tone": 0
+  },
+  {
+   "id": "em-scrape-feed_handler",
+   "node": "ctr:g1-prometheus",
+   "label": "Scrape feed_handler",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 15
+   },
+   "flow": [
+    [
+     {
+      "edge": "svc:feed_handler>ctr:g1-prometheus",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "g1-support-lab/monitoring/prometheus.yml",
+   "tone": 0
+  },
+  {
+   "id": "em-scrape-gap_request_proxy",
+   "node": "ctr:g1-prometheus",
+   "label": "Scrape gap_request_proxy",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 15
+   },
+   "flow": [
+    [
+     {
+      "edge": "svc:gap_proxy>ctr:g1-prometheus",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "g1-support-lab/monitoring/prometheus.yml",
+   "tone": 0
+  },
+  {
+   "id": "em-findw-pull-alpaca",
+   "node": "task:findw-pull-alpaca",
+   "label": "findw-pull-alpaca",
+   "trigger": {
+    "kind": "daily",
+    "at": "01:00",
+    "scriptAt": "02:00",
+    "live": true
+   },
+   "flow": [
+    [
+     {
+      "edge": "ext:alpaca>task:findw-pull-alpaca",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "task:findw-pull-alpaca>store:data-raw",
+      "rev": false
+     },
+     {
+      "edge": "task:findw-pull-alpaca>schema:meta",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "financial_data_warehouse/sources.yaml",
+   "tone": 0,
+   "job": true
+  },
+  {
+   "id": "em-findw-nightly",
+   "node": "task:findw-nightly",
+   "label": "findw-nightly",
+   "trigger": {
+    "kind": "daily",
+    "at": "01:30",
+    "scriptAt": "02:30",
+    "live": true
+   },
+   "flow": [
+    [
+     {
+      "edge": "store:data-raw>task:findw-nightly",
+      "rev": false
+     },
+     {
+      "edge": "store:lean-data>task:findw-nightly",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "task:findw-nightly>schema:stg",
+      "rev": false
+     },
+     {
+      "edge": "task:findw-nightly>schema:meta",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "schema:stg>schema:core",
+      "rev": false
+     },
+     {
+      "edge": "schema:meta>schema:core",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "schema:core>schema:mart",
+      "rev": false
+     },
+     {
+      "edge": "schema:meta>schema:mart",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "schema:stg>schema:dq",
+      "rev": false
+     },
+     {
+      "edge": "schema:core>schema:dq",
+      "rev": false
+     },
+     {
+      "edge": "schema:mart>schema:dq",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "financial_data_warehouse/src/findw/ingest.py",
+   "tone": 0,
+   "job": true
+  },
+  {
+   "id": "em-g1-derived-load",
+   "node": "task:g1-derived-load",
+   "label": "g1-derived-load",
+   "trigger": {
+    "kind": "daily",
+    "at": "02:00"
+   },
+   "flow": [
+    [
+     {
+      "edge": "schema:mart>task:g1-derived-load",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "task:g1-derived-load>store:kdbx",
+      "rev": false
+     },
+     {
+      "edge": "task:g1-derived-load>store:oracle",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "g1-support-lab/ops/Register-DerivedLoadTask.ps1",
+   "tone": 0,
+   "job": true
+  },
+  {
+   "id": "em-g1-agent-maintenance",
+   "node": "task:g1-agent-maintenance",
+   "label": "g1-agent-maintenance",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 60
+   },
+   "flow": [
+    [
+     {
+      "edge": "ctr:g1-prometheus>task:g1-agent-maintenance",
+      "rev": false
+     },
+     {
+      "edge": "schema:dq>task:g1-agent-maintenance",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "g1-support-lab/ops/Register-AgentTasks.ps1",
+   "tone": 0,
+   "job": false
+  },
+  {
+   "id": "em-g1-agent-maintenance-preopen",
+   "node": "task:g1-agent-maintenance",
+   "label": "g1-agent-maintenance-preopen",
+   "trigger": {
+    "kind": "weekly",
+    "at": "08:00",
+    "days": [
+     "Mon",
+     "Tue",
+     "Wed",
+     "Thu",
+     "Fri"
+    ]
+   },
+   "flow": [
+    [
+     {
+      "edge": "ctr:g1-prometheus>task:g1-agent-maintenance",
+      "rev": false
+     },
+     {
+      "edge": "schema:dq>task:g1-agent-maintenance",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "g1-support-lab/ops/Register-AgentTasks.ps1",
+   "tone": 0,
+   "job": true
+  },
+  {
+   "id": "em-g1-agent-tickets",
+   "node": "task:g1-agent-tickets",
+   "label": "g1-agent-tickets",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 60
+   },
+   "flow": [
+    [
+     {
+      "edge": "schema:ops>task:g1-agent-tickets",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "g1-support-lab/ops/Register-AgentTasks.ps1",
+   "tone": 0,
+   "job": false
+  },
+  {
+   "id": "em-g1-agent-docs",
+   "node": "task:g1-agent-docs",
+   "label": "g1-agent-docs",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 120
+   },
+   "flow": [
+    [
+     {
+      "edge": "schema:ops>task:g1-agent-docs",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "g1-support-lab/ops/Register-AgentTasks.ps1",
+   "tone": 0,
+   "job": false
+  },
+  {
+   "id": "em-g1-agent-indexer",
+   "node": "task:g1-agent-indexer",
+   "label": "g1-agent-indexer",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 300
+   },
+   "flow": [
+    [
+     {
+      "edge": "store:git>task:g1-agent-indexer",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "g1-support-lab/ops/Register-AgentTasks.ps1",
+   "tone": 0,
+   "job": false
+  },
+  {
+   "id": "em-quote",
+   "node": "svc:quoteengine",
+   "label": "Quote refresh",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 1
+   },
+   "flow": [
+    [
+     {
+      "edge": "svc:quoteengine>svc:fixgateway",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "svc:fixgateway>svc:mockexchange",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "svc:fixgateway>svc:mockexchange",
+      "rev": true
+     }
+    ],
+    [
+     {
+      "edge": "svc:quoteengine>svc:fixgateway",
+      "rev": true
+     }
+    ]
+   ],
+   "src": "g1-support-lab/mock-platform/QuoteEngine/QuoteLoop.cs (PeriodicTimer 1 s)",
+   "tone": 0
+  },
+  {
+   "id": "em-ioc",
+   "node": "svc:quoteengine",
+   "label": "10-share IOC order",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 5
+   },
+   "flow": [
+    [
+     {
+      "edge": "svc:quoteengine>svc:fixgateway",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "svc:fixgateway>svc:mockexchange",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "svc:fixgateway>svc:mockexchange",
+      "rev": true
+     }
+    ],
+    [
+     {
+      "edge": "svc:quoteengine>svc:fixgateway",
+      "rev": true
+     }
+    ]
+   ],
+   "src": "g1-support-lab/mock-platform/QuoteEngine/QuoteLoop.cs (every 5th tick)",
+   "tone": 1
+  },
+  {
+   "id": "em-readiness",
+   "node": "svc:readiness",
+   "label": "Readiness checks",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 15
+   },
+   "flow": [
+    [
+     {
+      "edge": "svc:readiness>svc:windows-exporter",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "g1-support-lab/ops/Invoke-MorningReadiness.ps1 (-IntervalSeconds 15)",
+   "tone": 0
+  },
+  {
+   "id": "em-claude",
+   "node": "ext:claude-code",
+   "label": "Claude session finished",
+   "trigger": {
+    "kind": "interval",
+    "everySec": 2700
+   },
+   "flow": [
+    [
+     {
+      "edge": "ext:claude-code>ctr:notify-ntfy",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "ctr:notify-ntfy>dev:phone",
+      "rev": false
+     }
+    ]
+   ],
+   "src": "illustrative: hooks fire per session turn (≥30 s)",
+   "tone": 0
+  }
+ ],
+ "scenarios": [
+  {
+   "id": "nightly",
+   "title": "The nightly data pipeline",
+   "summary": "How a day of market prices goes from an outside API to clean, checked tables that other tools can use, while everyone is asleep.",
+   "order": 1,
+   "steps": [
+    {
+     "title": "01:00 · Fetch only what's new",
+     "story": "Every night the warehouse asks Alpaca for the latest price bars for five tickers. It only asks for periods it doesn't already have.",
+     "tech": "Task findw-pull-alpaca → `findw pull --source alpaca`. Paged HTTP at ≤200 req/min with retries; a Postgres advisory lock (7202611, source_id) stops two pulls overlapping. Finished periods in meta.pull_state are skipped.",
+     "focus": [
+      "ext:alpaca",
+      "task:findw-pull-alpaca"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "ext:alpaca>task:findw-pull-alpaca",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "01:00",
+     "tone": ""
+    },
+    {
+     "title": "Land the raw files first",
+     "story": "Downloads are saved exactly as received before anything touches the database. If a later step fails, nothing has to be downloaded again.",
+     "tech": "One .json.gz per year (daily) or month (minute), written atomically under data_raw/alpaca/bars/. Each file is recorded in meta.pull_state with its row count and a `complete` flag.",
+     "focus": [
+      "task:findw-pull-alpaca",
+      "store:data-raw",
+      "schema:meta"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "task:findw-pull-alpaca>store:data-raw",
+        "rev": false
+       },
+       {
+        "edge": "task:findw-pull-alpaca>schema:meta",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "01:30 · Load, skipping anything unchanged",
+     "story": "The nightly job reads both sources (new downloads and the free sample data) into staging tables. Files it has already loaded are fingerprinted and skipped.",
+     "tech": "ingest.py discovers files, checks each sha256 against meta.ingest_log, and COPYs changed ones into one stg table per format (6 file types). A changed file's old rows are deleted by source_file first.",
+     "focus": [
+      "store:data-raw",
+      "store:lean-data",
+      "task:findw-nightly",
+      "schema:stg",
+      "schema:meta"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "store:data-raw>task:findw-nightly",
+        "rev": false
+       },
+       {
+        "edge": "store:lean-data>task:findw-nightly",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:findw-nightly>schema:stg",
+        "rev": false
+       },
+       {
+        "edge": "task:findw-nightly>schema:meta",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "01:30",
+     "tone": ""
+    },
+    {
+     "title": "Reshape into a clean model",
+     "story": "Staging rows become a proper model: one record per security, per price bar, per split or dividend, with every bar tagged by which source it came from.",
+     "tech": "sql/transforms/010–070 run in one transaction: dim_security, ticker history, trading days (with early closes), fact_equity_bar (LEAN prices ÷10000, source_id), adjustment factors, corporate actions, monthly option partitions.",
+     "focus": [
+      "schema:stg",
+      "schema:meta",
+      "schema:core"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:stg>schema:core",
+        "rev": false
+       },
+       {
+        "edge": "schema:meta>schema:core",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Publish ready-to-use views",
+     "story": "On top of the model sit views people actually use: prices adjusted for splits and dividends, the best source for each bar, and a quote stream for replay.",
+     "tech": "090/095: v_equity_bar_adjusted, _by_source, _best (lowest priority number wins), _source_diff, v_option_chain_eod, v_feed_replay (trade_date, ts_ns, symbol, bid, ask, sizes).",
+     "focus": [
+      "schema:core",
+      "schema:mart"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:core>schema:mart",
+        "rev": false
+       },
+       {
+        "edge": "schema:meta>schema:mart",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Check everything, every night",
+     "story": "Seventeen quality checks run: impossible prices, duplicates, missing days, sources that disagree. Known gaps are documented exceptions; anything else stops the pipeline and raises an alarm.",
+     "tech": "dq.py SQL_CHECKS (16) + a reconcile against LEAN's own backtest. Results land in dq.results; dq_exceptions.yaml downgrades known gaps to warnings; any error exits 1, which the maintenance agent sees.",
+     "focus": [
+      "schema:stg",
+      "schema:core",
+      "schema:mart",
+      "schema:dq"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:stg>schema:dq",
+        "rev": false
+       },
+       {
+        "edge": "schema:core>schema:dq",
+        "rev": false
+       },
+       {
+        "edge": "schema:mart>schema:dq",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "schema:dq",
+       "text": "17 checks",
+       "tone": "good"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "02:00 · Hand off to other engines",
+     "story": "The lab copies the finished data into two more databases used on trading desks and in finance teams, so the same numbers can be explored with their tools.",
+     "tech": "g1-derived-load: Postgres → KDB-X (PyKX, date-partitioned) → Oracle FINPDB (MKT_AV) → FPAPDB (FPA_AV). Success and duration become g1_derived_load_* metrics via the textfile collector.",
+     "focus": [
+      "schema:mart",
+      "task:g1-derived-load",
+      "store:kdbx",
+      "store:oracle"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:mart>task:g1-derived-load",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-derived-load>store:kdbx",
+        "rev": false
+       },
+       {
+        "edge": "task:g1-derived-load>store:oracle",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "02:00",
+     "tone": ""
+    }
+   ]
+  },
+  {
+   "id": "order",
+   "title": "The life of an order",
+   "summary": "Follow one order from a trading robot, through a router, onto an exchange and back, and see what happens when the exchange connection breaks.",
+   "order": 2,
+   "steps": [
+    {
+     "title": "A robot sends an order",
+     "story": "The QuoteEngine, a small trading robot, sends a 10-share market order in FIX, the standard language of trading systems.",
+     "tech": "NewOrderSingle (35=D), SenderCompID QUOTEENG → G1GW over the session on :9876, OrdType=Market, TimeInForce=IOC.",
+     "focus": [
+      "svc:quoteengine",
+      "svc:fixgateway"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:quoteengine>svc:fixgateway",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "The router tags and forwards it",
+     "story": "The gateway stamps the order with who sent it, so the reply can find its way home, and passes it to the exchange.",
+     "tech": "ClOrdID is rewritten to QUOTEENG.<id>; the order goes out on G1GW → MOCKEX (:9880). gw_orders_routed_total++.",
+     "focus": [
+      "svc:fixgateway",
+      "svc:mockexchange"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:fixgateway>svc:mockexchange",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "The exchange matches it",
+     "story": "The exchange finds a seller at the best price and fills the order.",
+     "tech": "SPY book, price-time priority. Market orders are IOC: fill what's there, cancel the rest. mockex_fills_total++.",
+     "focus": [
+      "svc:mockexchange"
+     ],
+     "hops": [],
+     "badges": [
+      {
+       "node": "svc:mockexchange",
+       "text": "FILLED",
+       "tone": "good"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "The confirmation comes back",
+     "story": "A fill report travels back the same way. The router reads the tag it added and returns it to the right robot.",
+     "tech": "ExecutionReport (35=8, ExecType=F). The gateway strips the CompID prefix and routes by it. gw_reports_routed_total.",
+     "focus": [
+      "svc:quoteengine",
+      "svc:fixgateway",
+      "svc:mockexchange"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:fixgateway>svc:mockexchange",
+        "rev": true
+       }
+      ],
+      [
+       {
+        "edge": "svc:quoteengine>svc:fixgateway",
+        "rev": true
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Now break the exchange link",
+     "story": "A chaos drill cuts the connection between router and exchange, the most damaging failure for a trading desk.",
+     "tech": "ops/Invoke-ChaosScenario.ps1 -Scenario FixSessionDown → POST /admin/exchange-session/hold (X-Lab-Admin-Token). Gateway logs the session out and suppresses logon; gw_exchange_session_hold = 1.",
+     "focus": [
+      "svc:fixgateway",
+      "svc:mockexchange"
+     ],
+     "hops": [],
+     "badges": [
+      {
+       "node": "svc:fixgateway",
+       "text": "SESSION HELD",
+       "tone": "bad"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Orders are refused safely",
+     "story": "The router doesn't hang or lose orders; it immediately tells the robot \"exchange is down\" so nothing is left in limbo. The next scenario follows the alarm this sets off.",
+     "tech": "Gateway-generated reject with text 'exchange session down'; gw_orders_rejected_total{reason=\"exchange_down\"}++. /health returns 503. Repair: ops/Reset-FixSession.ps1 → /restore.",
+     "focus": [
+      "svc:quoteengine",
+      "svc:fixgateway"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:quoteengine>svc:fixgateway",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "svc:quoteengine>svc:fixgateway",
+        "rev": true
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "svc:fixgateway",
+       "text": "REJECT",
+       "tone": "bad"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    }
+   ]
+  },
+  {
+   "id": "incident",
+   "title": "An incident, start to finish",
+   "summary": "Something breaks at 9:41. Watch the lab notice it, write the ticket, triage it with a local AI model, buzz the phone, get a human decision, and learn from it afterwards.",
+   "order": 3,
+   "steps": [
+    {
+     "title": "09:41 · The exchange link drops",
+     "story": "The connection between the order router and the exchange goes down. No orders can trade.",
+     "tech": "Session G1GW → MOCKEX logged out (chaos hold). fix_session_up{session=\"exchange\"} = 0.",
+     "focus": [
+      "svc:fixgateway",
+      "svc:mockexchange"
+     ],
+     "hops": [],
+     "badges": [
+      {
+       "node": "svc:fixgateway",
+       "text": "DOWN",
+       "tone": "bad"
+      }
+     ],
+     "clock": "09:41",
+     "tone": ""
+    },
+    {
+     "title": "Monitoring sees it within seconds",
+     "story": "Prometheus reads the router's numbers every five seconds. Fifteen seconds of \"down\" fires a critical alert.",
+     "tech": "Job fixgateway scrapes :9202 every 5 s. Rule FixSessionDown: fix_session_up{job=\"fixgateway\",session=\"exchange\"} == 0 for 15s, severity critical (P1). Runbook RB-001.",
+     "focus": [
+      "svc:fixgateway",
+      "ctr:g1-prometheus"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:fixgateway>ctr:g1-prometheus",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "ctr:g1-prometheus",
+       "text": "ALERT",
+       "tone": "bad"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "The maintenance agent drafts an incident",
+     "story": "A watchdog program checks alerts every minute. It writes a draft incident ticket. It can only write drafts, never change the system itself.",
+     "tech": "agent_maintenance (rule-based) reads /api/v1/alerts, inserts ops.tickets status=draft, priority P1 with a `created` event; key INC-#### comes from a trigger. One draft per episode, remembered in ctx.agent_memory.",
+     "focus": [
+      "ctr:g1-prometheus",
+      "task:g1-agent-maintenance",
+      "schema:ops"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "ctr:g1-prometheus>task:g1-agent-maintenance",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-maintenance>schema:ops",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "schema:ops",
+       "text": "INC draft · P1",
+       "tone": "bad"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "The phone buzzes",
+     "story": "Because it's a P1, the agent sends a push notification. Tapping it opens the ticket.",
+     "tech": "POST to ntfy :8090 (Bearer <token>), topic apps-g1-alerts, click URL <dashboard>/tickets/INC-####. Pushed on: P1 created, raised to P1, green again, still active at pre-open.",
+     "focus": [
+      "task:g1-agent-maintenance",
+      "ctr:notify-ntfy",
+      "dev:phone"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "task:g1-agent-maintenance>ctr:notify-ntfy",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "ctr:notify-ntfy>dev:phone",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "A local AI triages the draft",
+     "story": "The triage agent finds similar past incidents and the right runbook, then asks a language model, running on the tower's own GPU, to suggest next steps. It adds them as a comment.",
+     "tech": "pgvector search over ctx.chunks (search_query: prefix) → Ollama /api/chat qwen2.5:14b with a JSON schema → validated UPDATE (priority may only go up) + comment event. Defers if <10.3 GB GPU free.",
+     "focus": [
+      "schema:ops",
+      "schema:ctx",
+      "task:g1-agent-tickets",
+      "svc:ollama"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:ops>task:g1-agent-tickets",
+        "rev": false
+       },
+       {
+        "edge": "schema:ctx>task:g1-agent-tickets",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-tickets>svc:ollama",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-tickets>svc:ollama",
+        "rev": true
+       }
+      ],
+      [
+       {
+        "edge": "schema:ops>task:g1-agent-tickets",
+        "rev": true
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "A person decides",
+     "story": "The on-call person opens the dashboard, approves the incident, and runs the repair from the runbook. Only a human can make a draft real.",
+     "tech": "Dashboard over Tailscale Serve (:8100, identity headers). draft → open → in_progress as dashboard_app; every move appends to ops.ticket_events (append-only by trigger). Repair: ops/Reset-FixSession.ps1.",
+     "focus": [
+      "dev:phone",
+      "svc:dashboard",
+      "schema:ops"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "dev:phone>svc:dashboard",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "schema:ops>svc:dashboard",
+        "rev": true
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "svc:dashboard",
+       "text": "APPROVED",
+       "tone": "good"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Back to green",
+     "story": "The link is back. Monitoring clears the alert, the agent comments \"green again\" and sends a second push.",
+     "tech": "fix_session_up = 1; alert resolves; next maintenance run posts the recovery comment and notifies. The person resolves the ticket (resolved_at set by trigger).",
+     "focus": [
+      "svc:fixgateway",
+      "ctr:g1-prometheus",
+      "task:g1-agent-maintenance",
+      "ctr:notify-ntfy",
+      "dev:phone"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:fixgateway>ctr:g1-prometheus",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "ctr:g1-prometheus>task:g1-agent-maintenance",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-maintenance>ctr:notify-ntfy",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "ctr:notify-ntfy>dev:phone",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "svc:fixgateway",
+       "text": "UP",
+       "tone": "good"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "The docs agent writes the postmortem",
+     "story": "For every serious incident, an agent drafts the write-up: what happened, why, and what to change. It goes to a separate drafts repository, not the real docs.",
+     "tech": "agent_docs per resolved P1/P2: ticket + events + runbook + ctx → postmortem and runbook note committed to agent/docs/INC-#### in the bare repo C:\\g1-agents\\docs-drafts; comment on the ticket.",
+     "focus": [
+      "schema:ops",
+      "task:g1-agent-docs",
+      "svc:ollama",
+      "store:git"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:ops>task:g1-agent-docs",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-docs>svc:ollama",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-docs>svc:ollama",
+        "rev": true
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-docs>store:git",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Accepted, and remembered",
+     "story": "A person accepts the draft into the real docs. Within five minutes the indexer reads it and files it by meaning, so next time the triage agent finds this incident and its fix straight away.",
+     "tech": "/docs-drafts Accept copies the branch to the operator checkout → push to main → indexer fast-forwards C:\\g1-agents, re-embeds changed sections (nomic-embed-text, 768-d) into ctx.chunks (HNSW cosine).",
+     "focus": [
+      "svc:dashboard",
+      "store:git",
+      "task:g1-agent-indexer",
+      "svc:ollama",
+      "schema:ctx"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:dashboard>store:git",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "store:git>task:g1-agent-indexer",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-indexer>svc:ollama",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-indexer>schema:ctx",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "schema:ctx",
+       "text": "+ learned",
+       "tone": "good"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    }
+   ]
+  },
+  {
+   "id": "replay",
+   "title": "Market-data replay and gap recovery",
+   "summary": "The warehouse replays a day of option quotes like a live exchange feed. Packets go missing; the listener notices and gets them back.",
+   "order": 4,
+   "steps": [
+    {
+     "title": "Read a day from the warehouse",
+     "story": "The publisher reads one trading day of quotes, in time order, from a warehouse view.",
+     "tech": "ops/Invoke-FeedReplay.ps1 → feed_publisher (Postgres source, as findw_reader) reads mart.v_feed_replay ordered by ts_ns. KDB-X and CSV sources are interchangeable (FEED_CONTRACT.md).",
+     "focus": [
+      "schema:mart",
+      "svc:feed-publisher"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:mart>svc:feed-publisher",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Broadcast it on the network",
+     "story": "Each quote is numbered and broadcast to anyone listening, like a real exchange feed. A copy goes to a recovery service that keeps recent messages.",
+     "tech": "PITCH-style UDP to 239.192.0.1:30001 (TTL 0, loopback), sequence numbers per session. Every packet also streams to gap_request_proxy over TCP 30002 (role P), which holds a 10,000-message window.",
+     "focus": [
+      "svc:feed-publisher",
+      "svc:feed_handler",
+      "svc:gap_proxy"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:feed-publisher>svc:feed_handler",
+        "rev": false
+       },
+       {
+        "edge": "svc:feed-publisher>svc:gap_proxy",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Some packets go missing",
+     "story": "On purpose, the publisher drops a run of messages. The listener sees the numbers jump and knows exactly what's missing.",
+     "tech": "--drop 600-640 fault injection. feed_handler detects seq gap → feed_handler_gaps++, gap_messages += 41.",
+     "focus": [
+      "svc:feed-publisher",
+      "svc:feed_handler"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:feed-publisher>svc:feed_handler",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "svc:feed_handler",
+       "text": "GAP 600–640",
+       "tone": "bad"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Ask for them again",
+     "story": "The listener asks the recovery service for the missing range and gets it back in milliseconds. No data lost.",
+     "tech": "Retransmit request on TCP 30002 (role R); proxy serves from its window → feed_handler_retransmits += 41, unrecovered stays 0. With --no-proxy the gap stays open and FeedGapUnrecovered fires.",
+     "focus": [
+      "svc:feed_handler",
+      "svc:gap_proxy"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:gap_proxy>svc:feed_handler",
+        "rev": true
+       }
+      ],
+      [
+       {
+        "edge": "svc:gap_proxy>svc:feed_handler",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "svc:feed_handler",
+       "text": "RECOVERED",
+       "tone": "good"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Monitoring keeps score",
+     "story": "Both services report their counters, and the \"Market data feed\" dashboard shows gaps, recoveries and latency.",
+     "tech": "Scrapes :9301/:9302 every 15 s; alerts FeedGapUnrecovered, FeedGapProxyMisses, FeedHandlerDown. Grafana dashboard provisioned from monitoring/grafana/dashboards.",
+     "focus": [
+      "svc:feed_handler",
+      "svc:gap_proxy",
+      "ctr:g1-prometheus",
+      "ctr:g1-grafana"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:feed_handler>ctr:g1-prometheus",
+        "rev": false
+       },
+       {
+        "edge": "svc:gap_proxy>ctr:g1-prometheus",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "ctr:g1-prometheus>ctr:g1-grafana",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    }
+   ]
+  },
+  {
+   "id": "mcp",
+   "title": "Asking the warehouse from a laptop",
+   "summary": "An AI assistant on the laptop answers a question about prices by querying the warehouse on the tower, safely and read-only, over a private network.",
+   "order": 5,
+   "steps": [
+    {
+     "title": "A question on the laptop",
+     "story": "On the MacBook, someone asks Claude Code: \"How far did SPY's best-source close differ from LEAN's last week?\"",
+     "tech": "Claude Code has the findw MCP server registered (claude mcp add … http://<tower>:8765/mcp) with the bearer token.",
+     "focus": [
+      "dev:mac"
+     ],
+     "hops": [],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Over the private network",
+     "story": "The request crosses a private, encrypted network to the tower. Nothing is exposed to the internet or the local Wi-Fi.",
+     "tech": "Tailscale Serve forwards tcp 8765 → 127.0.0.1:8765. The server checks Authorization: Bearer <token> and the Host header against `tailscale status --json`.",
+     "focus": [
+      "dev:mac",
+      "task:findw-mcp"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "task:findw-mcp>dev:mac",
+        "rev": true
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "A read-only query",
+     "story": "The server runs the assistant's query with an account that can only read, with a time limit and a row cap.",
+     "tech": "Tool `query`: one prepared statement as findw_reader (SELECT on 5 schemas, 30 s statement_timeout, ≤10k rows) over mart.v_equity_bar_source_diff. run_pipeline is the only write tool and takes the pipeline lock.",
+     "focus": [
+      "task:findw-mcp",
+      "schema:mart"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:mart>task:findw-mcp",
+        "rev": true
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "The answer comes back",
+     "story": "Rows come back as JSON and the assistant explains them. No data files were ever copied to the laptop.",
+     "tech": "Streamable HTTP, stateless JSON responses. A design rule for this lab: the Mac reads the warehouse; it never holds a copy.",
+     "focus": [
+      "schema:mart",
+      "task:findw-mcp",
+      "dev:mac"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:mart>task:findw-mcp",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:findw-mcp>dev:mac",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    }
+   ]
+  }
+ ],
+ "alerts": [
+  {
+   "name": "FixSessionDown",
+   "expr": "fix_session_up{job=\"fixgateway\", session=\"exchange\"} == 0",
+   "for": "15s",
+   "severity": "critical",
+   "summary": "FixGateway's FIX session to MockExchange is down",
+   "runbook": "docs/runbooks/RB-001-fix-session-down.md"
+  },
+  {
+   "name": "ClientFixSessionDown",
+   "expr": "fix_session_up{job=\"fixgateway\", session=\"client:QUOTEENG\"} == 0",
+   "for": "30s",
+   "severity": "warning",
+   "summary": "QuoteEngine is not logged on to FixGateway",
+   "runbook": "docs/runbooks/RB-001-fix-session-down.md"
+  },
+  {
+   "name": "LabServiceDown",
+   "expr": "up{component=\"platform\"} == 0",
+   "for": "30s",
+   "severity": "critical",
+   "summary": "{{ $labels.job }} is not answering on its metrics port",
+   "runbook": "docs/runbooks/RB-001-fix-session-down.md"
+  },
+  {
+   "name": "ReadinessFailed",
+   "expr": "g1_readiness_ok == 0",
+   "for": "30s",
+   "severity": "warning",
+   "summary": "Readiness check failing: {{ with query \"g1_readiness_check == 0\" }}{{ range . }}{{ .Labels.check }} {{ end }}{{ end }}",
+   "runbook": "docs/runbooks/RB-001-fix-session-down.md"
+  },
+  {
+   "name": "ReadinessStale",
+   "expr": "time() - g1_readiness_last_run_timestamp_seconds > 180",
+   "for": "1m",
+   "severity": "warning",
+   "summary": "The readiness watcher has not reported for 3 minutes (is ops/Invoke-MorningReadiness.ps1 -Watch running?)",
+   "runbook": ""
+  },
+  {
+   "name": "DiskLow",
+   "expr": "windows_logical_disk_free_bytes{volume=\"C:\"} / windows_logical_disk_size_bytes{volume=\"C:\"} < 0.10",
+   "for": "5m",
+   "severity": "warning",
+   "summary": "C: has less than 10% free",
+   "runbook": "docs/runbooks/RB-003-disk-full.md"
+  },
+  {
+   "name": "FeedHandlerDown",
+   "expr": "up{component=\"marketdata\"} == 0",
+   "for": "2m",
+   "severity": "warning",
+   "summary": "{{ $labels.job }} is not answering on its metrics port",
+   "runbook": "docs/runbooks/RB-002-feed-gap.md"
+  },
+  {
+   "name": "FeedGapUnrecovered",
+   "expr": "feed_handler_unrecovered_messages > 0",
+   "for": "30s",
+   "severity": "warning",
+   "summary": "The feed handler is missing {{ $value }} messages it could not recover",
+   "runbook": "docs/runbooks/RB-002-feed-gap.md"
+  },
+  {
+   "name": "FeedGapProxyMisses",
+   "expr": "increase(gap_proxy_misses_total[5m]) > 0",
+   "for": "0s",
+   "severity": "warning",
+   "summary": "The gap request proxy was asked for messages it does not hold",
+   "runbook": "docs/runbooks/RB-002-feed-gap.md"
+  },
+  {
+   "name": "DerivedLoadFailed",
+   "expr": "g1_derived_load_success == 0",
+   "for": "0s",
+   "severity": "warning",
+   "summary": "The nightly derived-store load failed at step {{ with query \"g1_derived_load_success\" }}{{ (. | first).Labels.step }}{{ end }}",
+   "runbook": ""
+  },
+  {
+   "name": "DerivedStoresStale",
+   "expr": "time() - g1_derived_load_last_success_timestamp_seconds > 30 * 3600",
+   "for": "5m",
+   "severity": "warning",
+   "summary": "KDB-X and the Oracle analytic views have not been reloaded for over 30 hours",
+   "runbook": ""
+  }
+ ],
+ "ports": [
+  {
+   "port": 1521,
+   "proto": "TCP",
+   "service": "Oracle 26ai Free listener, container `g1-oracle` (`ORACLE_PORT`)",
+   "phase": "6",
+   "tailnet": "No"
+  },
+  {
+   "port": 3000,
+   "proto": "TCP",
+   "service": "open-webui (existing, bound to all interfaces)",
+   "phase": "—",
+   "tailnet": "—"
+  },
+  {
+   "port": 3100,
+   "proto": "TCP",
+   "service": "Grafana (Docker)",
+   "phase": "2",
+   "tailnet": "Yes"
+  },
+  {
+   "port": 5001,
+   "proto": "TCP",
+   "service": "KDB-X `q` process (WSL Ubuntu; WSL forwards it to 127.0.0.1 on Windows). Login required (`-U`, `KDBX_PASSWORD`)",
+   "phase": "6",
+   "tailnet": "No"
+  },
+  {
+   "port": 5433,
+   "proto": "TCP",
+   "service": "Postgres `findw-postgres` (existing)",
+   "phase": "—",
+   "tailnet": "Yes"
+  },
+  {
+   "port": 8100,
+   "proto": "HTTP",
+   "service": "Dashboard (Blazor Server)",
+   "phase": "4",
+   "tailnet": "Yes (`tailscale serve --http`, which adds the user identity headers)"
+  },
+  {
+   "port": 8090,
+   "proto": "HTTP",
+   "service": "ntfy notification hub, container `notify-ntfy` (repo `notify-hub`, outside this lab)",
+   "phase": "—",
+   "tailnet": "Via 8443"
+  },
+  {
+   "port": 8443,
+   "proto": "HTTPS",
+   "service": "`tailscale serve --https=8443` → ntfy 8090 (needs tailnet HTTPS certs)",
+   "phase": "—",
+   "tailnet": "Yes"
+  },
+  {
+   "port": 8765,
+   "proto": "TCP",
+   "service": "findw MCP server (existing)",
+   "phase": "—",
+   "tailnet": "Yes"
+  },
+  {
+   "port": 9090,
+   "proto": "TCP",
+   "service": "Prometheus (Docker)",
+   "phase": "2",
+   "tailnet": "No"
+  },
+  {
+   "port": 9182,
+   "proto": "TCP",
+   "service": "windows_exporter (its default)",
+   "phase": "2",
+   "tailnet": "No"
+  },
+  {
+   "port": 9201,
+   "proto": "TCP",
+   "service": "MockExchange metrics and admin HTTP",
+   "phase": "2",
+   "tailnet": "No"
+  },
+  {
+   "port": 9202,
+   "proto": "TCP",
+   "service": "FixGateway metrics and admin HTTP",
+   "phase": "2",
+   "tailnet": "No"
+  },
+  {
+   "port": 9203,
+   "proto": "TCP",
+   "service": "QuoteEngine metrics and admin HTTP",
+   "phase": "2",
+   "tailnet": "No"
+  },
+  {
+   "port": 9876,
+   "proto": "TCP",
+   "service": "FixGateway FIX acceptor (clients, QuoteEngine)",
+   "phase": "2",
+   "tailnet": "No"
+  },
+  {
+   "port": 9880,
+   "proto": "TCP",
+   "service": "MockExchange FIX acceptor (FixGateway only)",
+   "phase": "2",
+   "tailnet": "No"
+  },
+  {
+   "port": 9301,
+   "proto": "TCP",
+   "service": "feed_handler Prometheus metrics",
+   "phase": "3",
+   "tailnet": "No"
+  },
+  {
+   "port": 9302,
+   "proto": "TCP",
+   "service": "gap_request_proxy Prometheus metrics",
+   "phase": "3",
+   "tailnet": "No"
+  },
+  {
+   "port": 30001,
+   "proto": "UDP",
+   "service": "Feed multicast, group 239.192.0.1, loopback interface",
+   "phase": "3",
+   "tailnet": "No (Tailscale carries no multicast)"
+  },
+  {
+   "port": 30002,
+   "proto": "TCP",
+   "service": "gap_request_proxy retransmit requests",
+   "phase": "3",
+   "tailnet": "No"
+  }
+ ],
+ "three": {
+  "floors": [
+   {
+    "id": "f0",
+    "label": "Data in",
+    "zones": [
+     "z-sources",
+     "z-jobs"
+    ]
+   },
+   {
+    "id": "f1",
+    "label": "Warehouse",
+    "zones": [
+     "z-postgres",
+     "z-serve",
+     "z-derived"
+    ]
+   },
+   {
+    "id": "f2",
+    "label": "Trading & market data",
+    "zones": [
+     "z-platform",
+     "z-mkt"
+    ]
+   },
+   {
+    "id": "f3",
+    "label": "Agents & operations",
+    "zones": [
+     "z-agents",
+     "z-console"
+    ]
+   },
+   {
+    "id": "f4",
+    "label": "Monitoring & alerts",
+    "zones": [
+     "z-monitor",
+     "z-notify"
+    ]
+   }
+  ],
+  "outside": {
+   "label": "Tailscale · tailnet only",
+   "zones": [
+    "z-remote"
+   ]
+  }
+ },
+ "flows": [
+  {
+   "id": "nightly",
+   "label": "Nightly load and checks",
+   "story": "Files into staging, the clean model, views, then 17 quality checks",
+   "flow": [
+    [
+     {
+      "edge": "store:data-raw>task:findw-nightly",
+      "rev": false
+     },
+     {
+      "edge": "store:lean-data>task:findw-nightly",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "task:findw-nightly>schema:stg",
+      "rev": false
+     },
+     {
+      "edge": "task:findw-nightly>schema:meta",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "schema:stg>schema:core",
+      "rev": false
+     },
+     {
+      "edge": "schema:meta>schema:core",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "schema:core>schema:mart",
+      "rev": false
+     },
+     {
+      "edge": "schema:meta>schema:mart",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "schema:stg>schema:dq",
+      "rev": false
+     },
+     {
+      "edge": "schema:core>schema:dq",
+      "rev": false
+     },
+     {
+      "edge": "schema:mart>schema:dq",
+      "rev": false
+     }
+    ]
+   ]
+  },
+  {
+   "id": "pull",
+   "label": "Nightly pull from Alpaca",
+   "story": "New price bars land as raw files first",
+   "flow": [
+    [
+     {
+      "edge": "ext:alpaca>task:findw-pull-alpaca",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "task:findw-pull-alpaca>store:data-raw",
+      "rev": false
+     },
+     {
+      "edge": "task:findw-pull-alpaca>schema:meta",
+      "rev": false
+     }
+    ]
+   ]
+  },
+  {
+   "id": "derived",
+   "label": "Copy to KDB-X and Oracle",
+   "story": "The finished data, reshaped for other engines",
+   "flow": [
+    [
+     {
+      "edge": "schema:mart>task:g1-derived-load",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "task:g1-derived-load>store:kdbx",
+      "rev": false
+     },
+     {
+      "edge": "task:g1-derived-load>store:oracle",
+      "rev": false
+     }
+    ]
+   ]
+  },
+  {
+   "id": "mcp",
+   "label": "Laptop queries the warehouse",
+   "story": "Claude Code on the Mac, read-only, over the tailnet",
+   "flow": [
+    [
+     {
+      "edge": "task:findw-mcp>dev:mac",
+      "rev": true
+     }
+    ],
+    [
+     {
+      "edge": "schema:mart>task:findw-mcp",
+      "rev": true
+     }
+    ],
+    [
+     {
+      "edge": "schema:mart>task:findw-mcp",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "task:findw-mcp>dev:mac",
+      "rev": false
+     }
+    ]
+   ]
+  },
+  {
+   "id": "quote",
+   "label": "Quote round trip (FIX)",
+   "story": "Robot → router → exchange and back, every second",
+   "flow": [
+    [
+     {
+      "edge": "svc:quoteengine>svc:fixgateway",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "svc:fixgateway>svc:mockexchange",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "svc:fixgateway>svc:mockexchange",
+      "rev": true
+     }
+    ],
+    [
+     {
+      "edge": "svc:quoteengine>svc:fixgateway",
+      "rev": true
+     }
+    ]
+   ]
+  },
+  {
+   "id": "ioc",
+   "label": "Market order (IOC)",
+   "story": "A 10-share order every five seconds",
+   "flow": [
+    [
+     {
+      "edge": "svc:quoteengine>svc:fixgateway",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "svc:fixgateway>svc:mockexchange",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "svc:fixgateway>svc:mockexchange",
+      "rev": true
+     }
+    ],
+    [
+     {
+      "edge": "svc:quoteengine>svc:fixgateway",
+      "rev": true
+     }
+    ]
+   ]
+  },
+  {
+   "id": "replay",
+   "label": "Market-data replay",
+   "story": "Multicast feed with gap recovery",
+   "flow": [
+    [
+     {
+      "edge": "schema:mart>svc:feed-publisher",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "svc:feed-publisher>svc:feed_handler",
+      "rev": false
+     },
+     {
+      "edge": "svc:feed-publisher>svc:gap_proxy",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "svc:gap_proxy>svc:feed_handler",
+      "rev": false
+     }
+    ]
+   ]
+  },
+  {
+   "id": "scrapes",
+   "label": "Prometheus scrapes",
+   "story": "Every service's numbers, every 5–15 s",
+   "flow": [
+    [
+     {
+      "edge": "svc:windows-exporter>ctr:g1-prometheus",
+      "rev": false
+     },
+     {
+      "edge": "svc:mockexchange>ctr:g1-prometheus",
+      "rev": false
+     },
+     {
+      "edge": "svc:fixgateway>ctr:g1-prometheus",
+      "rev": false
+     },
+     {
+      "edge": "svc:quoteengine>ctr:g1-prometheus",
+      "rev": false
+     },
+     {
+      "edge": "svc:feed_handler>ctr:g1-prometheus",
+      "rev": false
+     },
+     {
+      "edge": "svc:gap_proxy>ctr:g1-prometheus",
+      "rev": false
+     }
+    ]
+   ]
+  },
+  {
+   "id": "readiness",
+   "label": "Readiness checks",
+   "story": "A 10-point checklist every 15 s",
+   "flow": [
+    [
+     {
+      "edge": "svc:readiness>svc:windows-exporter",
+      "rev": false
+     }
+    ]
+   ]
+  },
+  {
+   "id": "alert",
+   "label": "Alert to phone",
+   "story": "Alert → draft incident → push notification",
+   "flow": [
+    [
+     {
+      "edge": "ctr:g1-prometheus>task:g1-agent-maintenance",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "task:g1-agent-maintenance>schema:ops",
+      "rev": false
+     },
+     {
+      "edge": "task:g1-agent-maintenance>ctr:notify-ntfy",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "ctr:notify-ntfy>dev:phone",
+      "rev": false
+     }
+    ]
+   ]
+  },
+  {
+   "id": "maintenance",
+   "label": "Watchdog checks",
+   "story": "Alerts and quality results, every minute",
+   "flow": [
+    [
+     {
+      "edge": "ctr:g1-prometheus>task:g1-agent-maintenance",
+      "rev": false
+     },
+     {
+      "edge": "schema:dq>task:g1-agent-maintenance",
+      "rev": false
+     }
+    ]
+   ]
+  },
+  {
+   "id": "tickets",
+   "label": "Triage picks up drafts",
+   "story": "Every minute",
+   "flow": [
+    [
+     {
+      "edge": "schema:ops>task:g1-agent-tickets",
+      "rev": false
+     }
+    ]
+   ]
+  },
+  {
+   "id": "docs",
+   "label": "Postmortem drafting",
+   "story": "Resolved P1/P2s, every 2 min",
+   "flow": [
+    [
+     {
+      "edge": "schema:ops>task:g1-agent-docs",
+      "rev": false
+     }
+    ]
+   ]
+  },
+  {
+   "id": "indexer",
+   "label": "Indexing the docs",
+   "story": "Every 5 min, into the agents' memory",
+   "flow": [
+    [
+     {
+      "edge": "store:git>task:g1-agent-indexer",
+      "rev": false
+     }
+    ]
+   ]
+  },
+  {
+   "id": "approve",
+   "label": "Human approval and learning",
+   "story": "Dashboard decision → docs → agents' memory",
+   "flow": [
+    [
+     {
+      "edge": "dev:phone>svc:dashboard",
+      "rev": false
+     },
+     {
+      "edge": "dev:mac>svc:dashboard",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "schema:ops>svc:dashboard",
+      "rev": true
+     }
+    ],
+    [
+     {
+      "edge": "svc:dashboard>store:git",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "store:git>task:g1-agent-indexer",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "task:g1-agent-indexer>schema:ctx",
+      "rev": false
+     }
+    ]
+   ]
+  },
+  {
+   "id": "claude",
+   "label": "Claude session → phone",
+   "story": "Coding sessions push when they finish",
+   "flow": [
+    [
+     {
+      "edge": "ext:claude-code>ctr:notify-ntfy",
+      "rev": false
+     }
+    ],
+    [
+     {
+      "edge": "ctr:notify-ntfy>dev:phone",
+      "rev": false
+     }
+    ]
+   ]
+  }
+ ]
+}
