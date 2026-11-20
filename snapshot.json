@@ -1,6 +1,6 @@
 {
  "meta": {
-  "generatedAt": "2026-11-19T23:25:19Z",
+  "generatedAt": "2026-11-20T00:42:26Z",
   "repos": {
    "financial_data_warehouse": {
     "commit": "4614c5f",
@@ -24,7 +24,7 @@
    "dqChecks": 16,
    "alerts": 11,
    "emitters": 18,
-   "scenarios": 5
+   "scenarios": 6
   },
   "warnings": []
  },
@@ -4911,6 +4911,559 @@
   }
  ],
  "scenarios": [
+  {
+   "id": "walkthrough",
+   "title": "The whole system, end to end",
+   "summary": "Follow one day through the system: prices arrive overnight and become checked data, the trading lab runs on it, something breaks, and the lab and a person fix it together.",
+   "order": 0,
+   "steps": [
+    {
+     "title": "01:00 · Market prices come in",
+     "story": "Every night the warehouse asks a market-data provider for the latest stock prices, only for the periods it doesn't already have, and saves the downloads exactly as received.",
+     "tech": "Task findw-pull-alpaca → `findw pull --source alpaca`: paged HTTP at ≤200 req/min with retries, an advisory lock against overlapping pulls, one .json.gz per period under data_raw/, each recorded in meta.pull_state.",
+     "focus": [
+      "ext:alpaca",
+      "task:findw-pull-alpaca",
+      "store:data-raw"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "ext:alpaca>task:findw-pull-alpaca",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:findw-pull-alpaca>store:data-raw",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "01:00",
+     "tone": ""
+    },
+    {
+     "title": "01:30 · Loaded into the warehouse",
+     "story": "The nightly job reads the new downloads and a free sample data set into staging tables in PostgreSQL. Files it has loaded before are recognised and skipped.",
+     "tech": "ingest.py checks each file's sha256 against meta.ingest_log and COPYs changed ones into one stg table per format (6 file types). A changed file's old rows are deleted by source_file first.",
+     "focus": [
+      "store:data-raw",
+      "store:lean-data",
+      "task:findw-nightly",
+      "schema:stg"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "store:data-raw>task:findw-nightly",
+        "rev": false
+       },
+       {
+        "edge": "store:lean-data>task:findw-nightly",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:findw-nightly>schema:stg",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "01:30",
+     "tone": ""
+    },
+    {
+     "title": "Cleaned and modelled",
+     "story": "Staging rows become a proper model, one record per security and per price bar, and on top of it sit the views people actually use: prices adjusted for splits and dividends, and the best source for each bar.",
+     "tech": "sql/transforms/010–070 in one transaction (dim_security, trading days, fact_equity_bar with source_id, adjustment factors, corporate actions), then 090/095 views: v_equity_bar_adjusted, _best, v_feed_replay.",
+     "focus": [
+      "schema:stg",
+      "schema:meta",
+      "schema:core",
+      "schema:mart"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:stg>schema:core",
+        "rev": false
+       },
+       {
+        "edge": "schema:meta>schema:core",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "schema:core>schema:mart",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Checked every night",
+     "story": "Seventeen quality checks look for impossible prices, duplicates, missing days and sources that disagree. Anything unexpected stops the pipeline and raises an alarm.",
+     "tech": "dq.py SQL_CHECKS (16) plus a reconcile against LEAN's own backtest. Results land in dq.results; dq_exceptions.yaml downgrades known gaps to warnings; any error exits 1, which the maintenance agent sees.",
+     "focus": [
+      "schema:stg",
+      "schema:core",
+      "schema:mart",
+      "schema:dq"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:stg>schema:dq",
+        "rev": false
+       },
+       {
+        "edge": "schema:core>schema:dq",
+        "rev": false
+       },
+       {
+        "edge": "schema:mart>schema:dq",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "schema:dq",
+       "text": "17 checks",
+       "tone": "good"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "02:00 · Copied to the trading-desk databases",
+     "story": "The finished data is copied into two more databases of the kind used on trading desks and in finance teams, so the same checked numbers can be explored with their tools.",
+     "tech": "g1-derived-load: Postgres → KDB-X (PyKX, date-partitioned) → Oracle FINPDB (MKT_AV) → FPAPDB (FPA_AV). Success and duration become g1_derived_load_* metrics via the textfile collector.",
+     "focus": [
+      "schema:mart",
+      "task:g1-derived-load",
+      "store:kdbx",
+      "store:oracle"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:mart>task:g1-derived-load",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-derived-load>store:kdbx",
+        "rev": false
+       },
+       {
+        "edge": "task:g1-derived-load>store:oracle",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "02:00",
+     "tone": ""
+    },
+    {
+     "title": "09:30 · The trading lab replays a market day",
+     "story": "At the open, the trading lab replays a real day of quotes from the warehouse and broadcasts them on the network, the way an exchange's market-data feed would. A recovery service keeps a copy in case packets go missing.",
+     "tech": "feed_publisher reads mart.v_feed_replay as findw_reader and multicasts PITCH-style UDP to 239.192.0.1:30001; gap_request_proxy holds a 10,000-message TCP copy and retransmits gaps on request.",
+     "focus": [
+      "schema:mart",
+      "svc:feed-publisher",
+      "svc:feed_handler",
+      "svc:gap_proxy"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:mart>svc:feed-publisher",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "svc:feed-publisher>svc:feed_handler",
+        "rev": false
+       },
+       {
+        "edge": "svc:feed-publisher>svc:gap_proxy",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "09:30",
+     "tone": ""
+    },
+    {
+     "title": "A trading robot places an order",
+     "story": "A small trading robot sends an order to a router, which checks it and passes it to a simulated exchange. The exchange fills it and the confirmation travels back the same way.",
+     "tech": "FIX 4.4 NewOrderSingle (35=D, IOC market) QUOTEENG → G1GW (:9876) → MOCKEX (:9880), filled against the SPY book; ExecutionReport (35=8, ExecType=F) routed back by CompID.",
+     "focus": [
+      "svc:quoteengine",
+      "svc:fixgateway",
+      "svc:mockexchange"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:quoteengine>svc:fixgateway",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "svc:fixgateway>svc:mockexchange",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "svc:fixgateway>svc:mockexchange",
+        "rev": true
+       }
+      ],
+      [
+       {
+        "edge": "svc:quoteengine>svc:fixgateway",
+        "rev": true
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "svc:mockexchange",
+       "text": "FILLED",
+       "tone": "good"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Monitoring watches everything",
+     "story": "Every few seconds, Prometheus collects health numbers from every service and the machine itself, and Grafana turns them into dashboards.",
+     "tech": "Scrape jobs every 5 s (fixgateway) or 15 s (the rest), plus windows_exporter with the readiness textfile collector. Alert rules live in alert.rules.yml.",
+     "focus": [
+      "svc:fixgateway",
+      "svc:quoteengine",
+      "svc:mockexchange",
+      "svc:feed_handler",
+      "ctr:g1-prometheus",
+      "ctr:g1-grafana"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:fixgateway>ctr:g1-prometheus",
+        "rev": false
+       },
+       {
+        "edge": "svc:quoteengine>ctr:g1-prometheus",
+        "rev": false
+       },
+       {
+        "edge": "svc:mockexchange>ctr:g1-prometheus",
+        "rev": false
+       },
+       {
+        "edge": "svc:feed_handler>ctr:g1-prometheus",
+        "rev": false
+       },
+       {
+        "edge": "svc:gap_proxy>ctr:g1-prometheus",
+        "rev": false
+       },
+       {
+        "edge": "svc:windows-exporter>ctr:g1-prometheus",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "ctr:g1-prometheus>ctr:g1-grafana",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "09:41 · Something breaks",
+     "story": "The connection between the router and the exchange drops, so no orders can trade. Monitoring notices within seconds and raises a critical alert.",
+     "tech": "Session G1GW → MOCKEX logged out. Rule FixSessionDown: fix_session_up{session=\"exchange\"} == 0 for 15s, severity critical (P1). Runbook RB-001.",
+     "focus": [
+      "svc:fixgateway",
+      "svc:mockexchange",
+      "ctr:g1-prometheus"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:fixgateway>ctr:g1-prometheus",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "svc:fixgateway",
+       "text": "DOWN",
+       "tone": "bad"
+      },
+      {
+       "node": "ctr:g1-prometheus",
+       "text": "ALERT",
+       "tone": "bad"
+      }
+     ],
+     "clock": "09:41",
+     "tone": ""
+    },
+    {
+     "title": "An agent drafts a ticket, and the phone buzzes",
+     "story": "A watchdog program checks alerts every minute. It writes a draft incident ticket and sends a push notification to the on-call phone. It can only write drafts, never change the system itself.",
+     "tech": "agent_maintenance reads /api/v1/alerts, inserts ops.tickets status=draft, priority P1 (key INC-#### from a trigger), and POSTs to ntfy :8090, topic apps-g1-alerts, with a click URL to the ticket.",
+     "focus": [
+      "ctr:g1-prometheus",
+      "task:g1-agent-maintenance",
+      "schema:ops",
+      "ctr:notify-ntfy",
+      "dev:phone"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "ctr:g1-prometheus>task:g1-agent-maintenance",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-maintenance>schema:ops",
+        "rev": false
+       },
+       {
+        "edge": "task:g1-agent-maintenance>ctr:notify-ntfy",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "ctr:notify-ntfy>dev:phone",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "schema:ops",
+       "text": "INC draft · P1",
+       "tone": "bad"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "A local AI suggests the fix",
+     "story": "A triage agent finds similar past incidents and the right runbook, then asks a language model running on the tower's own GPU to suggest next steps, and adds them to the ticket.",
+     "tech": "pgvector search over ctx.chunks → Ollama /api/chat qwen2.5:14b with a JSON schema → validated UPDATE (priority may only go up) plus a comment event.",
+     "focus": [
+      "schema:ops",
+      "schema:ctx",
+      "task:g1-agent-tickets",
+      "svc:ollama"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "schema:ops>task:g1-agent-tickets",
+        "rev": false
+       },
+       {
+        "edge": "schema:ctx>task:g1-agent-tickets",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-tickets>svc:ollama",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-tickets>svc:ollama",
+        "rev": true
+       }
+      ],
+      [
+       {
+        "edge": "schema:ops>task:g1-agent-tickets",
+        "rev": true
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "A person approves it",
+     "story": "The on-call person taps the notification, opens the dashboard, approves the incident and runs the repair from the runbook. Only a human can make a draft real.",
+     "tech": "Dashboard over Tailscale Serve (:8100, identity headers). draft → open → in_progress as dashboard_app; every move appends to ops.ticket_events. Repair: ops/Reset-FixSession.ps1.",
+     "focus": [
+      "dev:phone",
+      "svc:dashboard",
+      "schema:ops"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "dev:phone>svc:dashboard",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "schema:ops>svc:dashboard",
+        "rev": true
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "svc:dashboard",
+       "text": "APPROVED",
+       "tone": "good"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Fixed, written up, remembered",
+     "story": "The link is back and the alert clears. An agent drafts the postmortem, a person accepts it into the docs, and the indexer files it by meaning, so next time the triage agent finds this incident and its fix straight away.",
+     "tech": "agent_docs commits a postmortem to agent/docs/INC-#### in the drafts repo; Accept pushes it to main; the indexer re-embeds changed sections (nomic-embed-text, 768-d) into ctx.chunks.",
+     "focus": [
+      "svc:fixgateway",
+      "schema:ops",
+      "task:g1-agent-docs",
+      "store:git",
+      "svc:dashboard",
+      "task:g1-agent-indexer",
+      "schema:ctx"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "svc:fixgateway>ctr:g1-prometheus",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "schema:ops>task:g1-agent-docs",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-docs>store:git",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "svc:dashboard>store:git",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "store:git>task:g1-agent-indexer",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:g1-agent-indexer>schema:ctx",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [
+      {
+       "node": "svc:fixgateway",
+       "text": "UP",
+       "tone": "good"
+      },
+      {
+       "node": "schema:ctx",
+       "text": "+ learned",
+       "tone": "good"
+      }
+     ],
+     "clock": "",
+     "tone": ""
+    },
+    {
+     "title": "Any time: ask the warehouse from a laptop",
+     "story": "From a laptop anywhere on the private network, an AI assistant can ask the warehouse questions in plain language. Its queries run on a read-only account, and every answer comes from the same checked data. That's the whole loop.",
+     "tech": "findw-mcp: Streamable HTTP on :8765/mcp via Tailscale Serve, bearer token and Host allow-list. `query` runs as findw_reader (30 s statement_timeout, ≤10k rows); run_pipeline is the only write tool and takes the pipeline lock.",
+     "focus": [
+      "dev:mac",
+      "task:findw-mcp",
+      "schema:mart"
+     ],
+     "hops": [
+      [
+       {
+        "edge": "task:findw-mcp>dev:mac",
+        "rev": true
+       }
+      ],
+      [
+       {
+        "edge": "schema:mart>task:findw-mcp",
+        "rev": true
+       }
+      ],
+      [
+       {
+        "edge": "schema:mart>task:findw-mcp",
+        "rev": false
+       }
+      ],
+      [
+       {
+        "edge": "task:findw-mcp>dev:mac",
+        "rev": false
+       }
+      ]
+     ],
+     "badges": [],
+     "clock": "",
+     "tone": ""
+    }
+   ]
+  },
   {
    "id": "nightly",
    "title": "The nightly data pipeline",
